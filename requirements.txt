@@ -1,0 +1,5 @@
+python-telegram-bot
+aiohttp
+azure-identity
+azure-keyvault-secrets
+python-dotenv
