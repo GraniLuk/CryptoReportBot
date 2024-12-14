@@ -35,7 +35,7 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}
-          dockerfilePath: ${{ github.workspace }}/prod.dockerfile
+          dockerfilePath: prod.dockerfile  # Simplified path since Dockerfile is in root
           registryUrl: cryptoreportcontainer.azurecr.io
           registryUsername: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}
