@@ -1,0 +1,48 @@
+name: Trigger auto deployment for cryptoreportcontainerapp
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ main ]
+    paths:
+    - '**'
+    - '.github/workflows/cryptoreportcontainerapp-AutoDeployTrigger-b6c13c4c-5e18-4442-a5d8-b31e40133f85.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:      
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions: 
+      id-token: write #This is required for requesting the OIDC JWT Token
+      contents: read #Required when GH token is used to authenticate with private repo
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}prod.dockerfile
+          _dockerfilePathKey_: _dockerfilePath_
+          registryUrl: cryptoreportcontainer.azurecr.io
+          registryUsername: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}
+          containerAppName: cryptoreportcontainerapp
+          resourceGroup: alertsfunctiongrani
+          imageToBuild: cryptoreportcontainer.azurecr.io/cryptoreportcontainerapp:${{ github.sha }}
+          _buildArgumentsKey_: |
+            _buildArgumentsValues_
+
+
