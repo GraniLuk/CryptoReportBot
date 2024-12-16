@@ -120,6 +120,47 @@ async def send_alert_request(data: Dict[str, Any]) -> bool:
         logger.error(f"Error sending alert: {e}")
         return False
 
+async def get_all_alerts() -> list:
+    """Fetches all alerts from Azure Function."""
+    # Construct the URL by replacing 'insert_new_alert_grani' with 'get_all_alerts'
+    url = AZURE_FUNCTION_URL.replace('insert_new_alert_grani', 'get_all_alerts')
+    params = {
+        "code": AZURE_FUNCTION_KEY
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                params=params,
+                headers={"Content-Type": "application/json"}
+            ) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    logger.error(f"Error getting alerts: {response.status}")
+                    return []
+    except Exception as e:
+        logger.error(f"Error fetching alerts: {e}")
+        return []
+
+async def list_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handler for /listalerts command."""
+    alerts = await get_all_alerts()
+    if not alerts:
+        await update.message.reply_text("No alerts found or error fetching alerts.")
+        return
+
+    message = "<b>Current Alerts:</b>\n\n"
+    for alert in alerts:
+        message += f"Symbol: {alert['symbol']}\n"
+        message += f"Price: {alert['price']}\n"
+        message += f"Operator: {alert['operator']}\n"
+        message += f"Description: {alert['description']}\n"
+        message += "-------------------\n"
+
+    await update.message.reply_text(message, parse_mode='HTML')
+
 async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the description."""
     context.user_data['description'] = update.message.text
@@ -206,7 +247,8 @@ def main() -> None:
 
     # Handle the case when a user sends /createalert but they're not in a conversation
     application.add_handler(CommandHandler('createalert', createalert))
-
+    application.add_handler(CommandHandler('listalerts', list_alerts))
+    
     application.run_polling()
 
 
