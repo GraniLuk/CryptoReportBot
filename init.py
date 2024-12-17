@@ -247,7 +247,7 @@ def main() -> None:
 
     # Handle the case when a user sends /createalert but they're not in a conversation
     application.add_handler(CommandHandler('createalert', createalert))
-    application.add_handler(CommandHandler('listalerts', list_alerts))
+    application.add_handler(CommandHandler('getalerts', list_alerts))
     
     application.run_polling()
 
