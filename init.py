@@ -7,6 +7,9 @@ import aiohttp
 from typing import Dict, Any
 from config import get_secret
 import locale
+from telegram.error import Conflict
+import sys
+import logging
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -236,10 +239,20 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text('Bye! Hope to talk to you again soon.', reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle errors caused by updates."""
+    logging.error(f"Update {update} caused error {context.error}")
+    if isinstance(context.error, Conflict):
+        logging.error("Another bot instance is running. Shutting down...")
+        await context.application.stop()
+        sys.exit(1)
 
 def main() -> None:
     """Run the bot."""
     application = Application.builder().token(BOT_TOKEN).build()
+    
+    # Add error handler
+    application.add_error_handler(error_handler)
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('createalert', createalert)],
@@ -258,8 +271,17 @@ def main() -> None:
     application.add_handler(CommandHandler('createalert', createalert))
     application.add_handler(CommandHandler('getalerts', list_alerts))
     
-    application.run_polling()
+    # Start the bot
+    try:
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        logging.error(f"Error running bot: {e}")
+        sys.exit(1)
 
-
+# Before running, ensure no other instances are running
 if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
     main()
