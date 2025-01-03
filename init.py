@@ -80,13 +80,13 @@ async def crypto_operator(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     # Map callback_data to operators
     operator_map = {
-        'greater': '>',
-        'lower': '<',
-        'greater_or_equal': '>=',
-        'lower_or_equal': '<='
+        'greater': '&gt;',  # HTML escaped >
+        'lower': '&lt;',    # HTML escaped <
+        'greater_or_equal': '&gt;=',  # HTML escaped >=
+        'lower_or_equal': '&lt;='     # HTML escaped <=
     }
     
-    context.user_data['operator'] = operator_map[query.data]
+    context.user_data['operator'] = operator_map[query.data].replace('&gt;', '>').replace('&lt;', '<')
     await query.message.reply_text(
         f'<b>You selected {operator_map[query.data]} operator.\n'
         f'What price level do you want to set for {context.user_data["symbol"]}?</b>',
