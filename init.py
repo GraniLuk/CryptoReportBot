@@ -62,10 +62,10 @@ async def crypto_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     # Define inline buttons for operator selection
     keyboard = [
-        [InlineKeyboardButton('Greater', callback_data='>')],
-        [InlineKeyboardButton('Lower', callback_data='<')],
-        [InlineKeyboardButton('Greater or equal', callback_data='>=')],
-        [InlineKeyboardButton('Lower or equal', callback_data='<=')],
+        [InlineKeyboardButton('Greater', callback_data='greater')],
+        [InlineKeyboardButton('Lower', callback_data='lower')],
+        [InlineKeyboardButton('Greater or equal', callback_data='greater_or_equal')],
+        [InlineKeyboardButton('Lower or equal', callback_data='lower_or_equal')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('<b>Please choose:</b>', parse_mode='HTML', reply_markup=reply_markup)
@@ -74,16 +74,25 @@ async def crypto_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 
 async def crypto_operator(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the user's crypto operator."""
+    """Stores the selected operator."""
     query = update.callback_query
     await query.answer()
-    context.user_data['operator'] = query.data
-    await query.edit_message_text(
-        text=f'<b>You selected {query.data} operator.\n'
-             f'For what price alert should be triggered?</b>',
+    
+    # Map callback_data to operators
+    operator_map = {
+        'greater': '>',
+        'lower': '<',
+        'greater_or_equal': '>=',
+        'lower_or_equal': '<='
+    }
+    
+    context.user_data['operator'] = operator_map[query.data]
+    await query.message.reply_text(
+        f'<b>You selected {operator_map[query.data]} operator.\n'
+        f'What price level do you want to set for {context.user_data["symbol"]}?</b>',
         parse_mode='HTML'
     )
-
+    
     return CRYPTO_DESCRIPTION
 
 
