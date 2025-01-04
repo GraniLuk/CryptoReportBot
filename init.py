@@ -89,7 +89,7 @@ async def crypto_operator(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         'lower_or_equal': '&lt;='     # HTML escaped <=
     }
     
-    context.user_data['operator'] = operator_map[query.data].replace('&gt;', '>').replace('&lt;', '<')
+    context.user_data['operator'] = operator_map[query.data]
     await query.message.reply_text(
         f'<b>You selected {operator_map[query.data]} operator.\n'
         f'What price level do you want to set for {context.user_data["symbol"]}?</b>',
@@ -216,7 +216,7 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     alert_data = {
         "symbol": symbol,
         "price": price_float,
-        "operator": operator,
+        "operator": operator.replace('&gt;', '>').replace('&lt;', '<'),
         "description": description
     }
 
