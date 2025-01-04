@@ -43,9 +43,17 @@ async def createalert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     await update.message.reply_text(
         '<b>Welcome to the Crypto Report Bot!\n'
         'I will help you to create alert for your specific cryptocurrency.\n'
-        'What is crypto symbol for new alert?</b>',
+        'What is crypto symbol for new alert?\n\n'
+        'You can either:\n'
+        '• Select from the common options below\n'
+        '• Type any crypto symbol you want</b>',
         parse_mode='HTML',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, 
+            one_time_keyboard=True, 
+            resize_keyboard=True,
+            input_field_placeholder="Type any crypto symbol or select below"
+        ),
     )
 
     return CRYPTO_SYMBOL
