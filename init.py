@@ -326,7 +326,7 @@ def main() -> None:
     )
 
     gmt_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('createGMTAlert', createGmtAlert)],
+        entry_points=[CommandHandler('creategmtalert', createGmtAlert)],
         states={
             CRYPTO_OPERATOR: [CallbackQueryHandler(crypto_operator)],
             CRYPTO_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, crypto_description)],
@@ -341,7 +341,7 @@ def main() -> None:
     # Handle the case when a user sends /createalert but they're not in a conversation
     application.add_handler(CommandHandler('createalert', createalert))
     application.add_handler(CommandHandler('getalerts', list_alerts))
-    application.add_handler(CommandHandler('createGMTAlert', createGmtAlert))
+    application.add_handler(CommandHandler('creategmtalert', createGmtAlert))
     
     # Start the bot
     try:
