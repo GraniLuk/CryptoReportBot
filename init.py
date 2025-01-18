@@ -62,6 +62,7 @@ async def createGmtAlert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Map callback_data to operators
     user = update.message.from_user
     context.user_data['symbol1'] = 'GMT'
+    context.user_data['symbol'] = 'GMT/GST'
     context.user_data['symbol2'] = 'GST'
     context.user_data['type'] = 'ratio'
     logger.info('Crypto symbol of %s: %s', user.first_name, update.message.text)
@@ -81,7 +82,6 @@ async def createGmtAlert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('<b>Please choose:</b>', parse_mode='HTML', reply_markup=reply_markup)
-
     return CRYPTO_OPERATOR
 
 async def crypto_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -325,7 +325,18 @@ def main() -> None:
         fallbacks=[CommandHandler('cancel', cancel)],
     )
 
+    gmt_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('createGMTAlert', createGmtAlert)],
+        states={
+            CRYPTO_OPERATOR: [CallbackQueryHandler(crypto_operator)],
+            CRYPTO_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, crypto_description)],
+            SUMMARY: [MessageHandler(filters.ALL, summary)]
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+    )
+
     application.add_handler(conv_handler)
+    application.add_handler(gmt_conv_handler)
 
     # Handle the case when a user sends /createalert but they're not in a conversation
     application.add_handler(CommandHandler('createalert', createalert))
