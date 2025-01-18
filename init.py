@@ -58,11 +58,37 @@ async def createalert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     return CRYPTO_SYMBOL
 
+async def createGmtAlert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # Map callback_data to operators
+    user = update.message.from_user
+    context.user_data['symbol1'] = 'GMT'
+    context.user_data['symbol2'] = 'GST'
+    context.user_data['type'] = 'ratio'
+    logger.info('Crypto symbol of %s: %s', user.first_name, update.message.text)
+    await update.message.reply_text(
+        f'<b>You are creating alert for GMT/GST ratio.\n'
+        f'What operator do you want?</b>',
+        parse_mode='HTML',
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+    # Define inline buttons for operator selection
+    keyboard = [
+        [InlineKeyboardButton('Greater', callback_data='greater')],
+        [InlineKeyboardButton('Lower', callback_data='lower')],
+        [InlineKeyboardButton('Greater or equal', callback_data='greater_or_equal')],
+        [InlineKeyboardButton('Lower or equal', callback_data='lower_or_equal')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('<b>Please choose:</b>', parse_mode='HTML', reply_markup=reply_markup)
+
+    return CRYPTO_OPERATOR
 
 async def crypto_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the user's crypto symbol."""
     user = update.message.from_user
     context.user_data['symbol'] = update.message.text
+    context.user_data['type'] = 'single'
     logger.info('Crypto symbol of %s: %s', user.first_name, update.message.text)
     await update.message.reply_text(
         f'<b>You selected {update.message.text} crypto.\n'
@@ -114,6 +140,92 @@ async def crypto_description(update: Update, context: ContextTypes.DEFAULT_TYPE)
                                     'Please add description:</b>',
                                     parse_mode='HTML')
     return SUMMARY
+
+async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Stores the description."""
+    context.user_data['description'] = update.message.text
+    # Inform user and transition to summary
+    await update.message.reply_text('<b>Description added successfully.\n'
+                                    'Let\'s summarize your selections.</b>',
+                                    parse_mode='HTML'
+    )
+    """Summarizes the user's selections and sends alert."""
+    symbol = context.user_data.get('symbol')
+    symbol1 = context.user_data.get('symbol1')
+    symbol2 = context.user_data.get('symbol2')
+    type = context.user_data.get('type')
+    operator = context.user_data.get('operator')
+    price = context.user_data.get('price')
+    description = context.user_data.get('description')
+
+        # Prepare data for the alert
+    try:
+        # Try to convert using locale
+        price_float = float(locale.atof(price))
+    except ValueError:
+        # Fallback: Replace comma with dot and try again
+        try:
+            price_float = float(price.replace(',', '.'))
+        except ValueError as e:
+            await update.message.reply_text(f"❌ Invalid price format: {e}")
+            return ConversationHandler.END
+
+    if type == 'ratio':
+        await update.message.reply_text(
+            f'<b>Summary:</b>\n'
+            f'Symbol 1: {symbol1}\n'
+            f'Symbol 2: {symbol2}\n'
+            f'Operator: {operator}\n'
+            f'Price: {price}\n'
+            f'Description: {description}',
+            parse_mode='HTML'
+        )
+
+        alert_data = {
+            "type" : type,
+            "symbol1": symbol1,
+            "symbol2": symbol2,
+            "price": price_float,
+            "operator": operator.replace('&gt;', '>').replace('&lt;', '<'),
+            "description": description
+        }
+    
+    else:
+
+        # Check if any required value is missing
+        if not all([symbol, operator, price, description]):
+            await update.message.reply_text("❌ Missing required information. Please start the process again.")
+            return ConversationHandler.END
+
+        await update.message.reply_text(
+            f'<b>Summary:</b>\n'
+            f'Symbol: {symbol}\n'
+            f'Operator: {operator}\n'
+            f'Price: {price}\n'
+            f'Description: {description}',
+            parse_mode='HTML'
+        )
+
+        alert_data = {
+            "type" : type,
+            "symbol": symbol,
+            "price": price_float,
+            "operator": operator.replace('&gt;', '>').replace('&lt;', '<'),
+            "description": description
+        }
+
+    # Log the alert data for debugging
+    logger.info(f"Alert data: {alert_data}")
+
+    # Send the alert
+    success = await send_alert_request(alert_data)
+    
+    if success:
+        await update.message.reply_text("✅ Alert has been created successfully!")
+    else:
+        await update.message.reply_text("❌ Failed to create alert. Please try again later.")
+
+    return ConversationHandler.END
 
 
 async def send_alert_request(data: Dict[str, Any]) -> bool:
@@ -181,66 +293,6 @@ async def list_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await update.message.reply_text(message, parse_mode='HTML')
 
-async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the description."""
-    context.user_data['description'] = update.message.text
-    # Inform user and transition to summary
-    await update.message.reply_text('<b>Description added successfully.\n'
-                                    'Let\'s summarize your selections.</b>',
-                                    parse_mode='HTML'
-    )
-    """Summarizes the user's selections and sends alert."""
-    symbol = context.user_data.get('symbol')
-    operator = context.user_data.get('operator')
-    price = context.user_data.get('price')
-    description = context.user_data.get('description')
-
-    # Check if any required value is missing
-    if not all([symbol, operator, price, description]):
-        await update.message.reply_text("❌ Missing required information. Please start the process again.")
-        return ConversationHandler.END
-
-    await update.message.reply_text(
-        f'<b>Summary:</b>\n'
-        f'Symbol: {symbol}\n'
-        f'Operator: {operator}\n'
-        f'Price: {price}\n'
-        f'Description: {description}',
-        parse_mode='HTML'
-    )
-
-    # Prepare data for the alert
-    try:
-        # Try to convert using locale
-        price_float = float(locale.atof(price))
-    except ValueError:
-        # Fallback: Replace comma with dot and try again
-        try:
-            price_float = float(price.replace(',', '.'))
-        except ValueError as e:
-            await update.message.reply_text(f"❌ Invalid price format: {e}")
-            return ConversationHandler.END
-
-    alert_data = {
-        "symbol": symbol,
-        "price": price_float,
-        "operator": operator.replace('&gt;', '>').replace('&lt;', '<'),
-        "description": description
-    }
-
-    # Log the alert data for debugging
-    logger.info(f"Alert data: {alert_data}")
-
-    # Send the alert
-    success = await send_alert_request(alert_data)
-    
-    if success:
-        await update.message.reply_text("✅ Alert has been created successfully!")
-    else:
-        await update.message.reply_text("❌ Failed to create alert. Please try again later.")
-
-    return ConversationHandler.END
-
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
@@ -278,6 +330,7 @@ def main() -> None:
     # Handle the case when a user sends /createalert but they're not in a conversation
     application.add_handler(CommandHandler('createalert', createalert))
     application.add_handler(CommandHandler('getalerts', list_alerts))
+    application.add_handler(CommandHandler('createGMTAlert', createGmtAlert))
     
     # Start the bot
     try:
