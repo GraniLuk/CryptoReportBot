@@ -293,6 +293,62 @@ async def list_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await update.message.reply_text(message, parse_mode='HTML')
 
+async def delete_alert(alert_id: str) -> bool:
+    """Sends delete request to Azure Function."""
+    url = AZURE_FUNCTION_URL.replace('insert_new_alert_grani', 'delete_alert')
+    params = {
+        "code": AZURE_FUNCTION_KEY
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                params=params,
+                json={"guid": alert_id},
+                headers={"Content-Type": "application/json"}
+            ) as response:
+                response_text = await response.text()
+                logger.info(f"Delete response status: {response.status}, Response text: {response_text}")
+                return response.status == 200
+    except Exception as e:
+        logger.error(f"Error deleting alert: {e}")
+        return False
+
+async def remove_alert_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handler for /removealert command."""
+    alerts = await get_all_alerts()
+    if not alerts:
+        await update.message.reply_text("No alerts found to remove.")
+        return
+
+    keyboard = []
+    for alert in alerts:
+        # Create button text with alert details
+        button_text = f"{alert['symbol']} {alert['operator']} {alert['price']}"
+        # Use alert's guid as callback data
+        keyboard.append([InlineKeyboardButton(button_text, callback_data=f"delete_{alert['guid']}")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "<b>Select an alert to remove:</b>",
+        parse_mode='HTML',
+        reply_markup=reply_markup
+    )
+
+async def button_click_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle button clicks for alert removal."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data.startswith("delete_"):
+        alert_id = query.data.replace("delete_", "")
+        success = await delete_alert(alert_id)
+        
+        if success:
+            await query.message.edit_text("✅ Alert has been removed successfully!")
+        else:
+            await query.message.edit_text("❌ Failed to remove alert. Please try again later.")
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
@@ -343,6 +399,10 @@ def main() -> None:
     application.add_handler(CommandHandler('getalerts', list_alerts))
     application.add_handler(CommandHandler('creategmtalert', createGmtAlert))
     
+    # Add new handlers for alert removal
+    application.add_handler(CommandHandler('removealert', remove_alert_command))
+    application.add_handler(CallbackQueryHandler(button_click_handler))
+
     # Start the bot
     try:
         application.run_polling(allowed_updates=Update.ALL_TYPES)
