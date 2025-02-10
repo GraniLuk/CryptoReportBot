@@ -373,8 +373,12 @@ async def remove_alert_command(
 
     keyboard = []
     for alert in alerts["alerts"]:
-        # Create button text with alert details
-        button_text = f"{alert['symbol']} {alert['operator']} {alert['price']}"
+        # Create button text based on alert type
+        if alert.get("type") == "ratio":
+            button_text = f"{alert['symbol1']}/{alert['symbol2']} {alert['operator']} {alert['price']}"
+        else:
+            button_text = f"{alert['symbol']} {alert['operator']} {alert['price']}"
+            
         # Use alert's guid as callback data
         keyboard.append(
             [InlineKeyboardButton(button_text, callback_data=f"delete_{alert['id']}")]
