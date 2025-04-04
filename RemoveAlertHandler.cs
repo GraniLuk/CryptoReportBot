@@ -101,8 +101,8 @@ namespace CryptoReportBot
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var alertsResponse = JsonSerializer.Deserialize<AlertsResponse>(content);
-                    return alertsResponse.Alerts;
+                    var alerts = JsonSerializer.Deserialize<List<AlertModel>>(content);
+                    return alerts ?? new List<AlertModel>();
                 }
                 else
                 {
