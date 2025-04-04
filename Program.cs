@@ -12,6 +12,11 @@ namespace CryptoReportBot
         static async Task Main(string[] args)
         {
             using IHost host = CreateHostBuilder(args).Build();
+            
+            // Retrieve Bot instance and start it
+            var bot = host.Services.GetRequiredService<Bot>();
+            await bot.StartAsync();
+            
             await host.RunAsync();
         }
 
