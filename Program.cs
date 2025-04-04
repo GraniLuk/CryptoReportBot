@@ -1,9 +1,8 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Http;
 using System;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace CryptoReportBot
@@ -12,20 +11,24 @@ namespace CryptoReportBot
     {
         static async Task Main(string[] args)
         {
-            // Setup Host
             using IHost host = CreateHostBuilder(args).Build();
-            
-            // Get bot service and start it
-            var bot = host.Services.GetRequiredService<Bot>();
-            await bot.StartAsync();
-            
-            // Keep the application running
             await host.RunAsync();
         }
 
-        private static IHostBuilder CreateHostBuilder(string[] args) =>
+        public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureLogging((context, logging) =>
+                .ConfigureAppConfiguration((hostContext, config) =>
+                {
+                    // Add User Secrets in development environment
+                    if (hostContext.HostingEnvironment.IsDevelopment())
+                    {
+                        config.AddUserSecrets<Program>();
+                    }
+                    
+                    // Add local.settings.json if it exists (for local development)
+                    config.AddJsonFile("local.settings.json", optional: true, reloadOnChange: true);
+                })
+                .ConfigureLogging(logging =>
                 {
                     logging.ClearProviders();
                     logging.AddConsole();
