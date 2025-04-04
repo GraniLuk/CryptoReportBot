@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace CryptoReportBot
@@ -34,7 +35,7 @@ namespace CryptoReportBot
                     services.AddSingleton<IConfigurationManager, ConfigurationManager>();
                     
                     // Register core services
-                    services.AddSingleton<HttpClient>();
+                    services.AddHttpClient(); 
                     services.AddSingleton<IAzureFunctionsClient, AzureFunctionsClient>();
                     
                     // Register conversation handlers
