@@ -102,7 +102,7 @@ namespace CryptoReportBot
         private async Task HandleMessageAsync(Message message)
         {
             // Get or create user state
-            var userId = message.From.Id;
+            var userId = message.From?.Id ?? throw new InvalidOperationException("Message sender information is missing.");
             if (!UserStates.TryGetValue(userId, out var userState))
             {
                 userState = new UserConversationState();
