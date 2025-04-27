@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using CryptoReportBot.Models;
 
 namespace CryptoReportBot
 {

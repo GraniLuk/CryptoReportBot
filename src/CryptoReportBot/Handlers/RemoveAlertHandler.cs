@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
+using CryptoReportBot.Models;
 
 namespace CryptoReportBot
 {
@@ -16,17 +17,22 @@ namespace CryptoReportBot
         private readonly IConfigurationManager _config;
         private readonly HttpClient _httpClient;
         private readonly ILogger<RemoveAlertHandler> _logger;
+        private readonly IAzureFunctionsClient _azureFunctionsClient;
 
-        public RemoveAlertHandler(IConfigurationManager config, ILogger<RemoveAlertHandler> logger)
+        public RemoveAlertHandler(
+            IConfigurationManager config, 
+            ILogger<RemoveAlertHandler> logger,
+            IAzureFunctionsClient azureFunctionsClient)
         {
             _config = config;
             _logger = logger;
             _httpClient = new HttpClient();
+            _azureFunctionsClient = azureFunctionsClient;
         }
 
         public async Task HandleAsync(ITelegramBotClient botClient, Message message)
         {
-            var alertsResponse = await GetAllAlertsAsync();
+            var alertsResponse = await _azureFunctionsClient.GetAllAlertsAsync();
             var alerts = alertsResponse?.Alerts ?? new List<Alert>();
             
             if (alerts.Count == 0)
@@ -70,7 +76,7 @@ namespace CryptoReportBot
             if (callbackQuery.Data.StartsWith("delete_"))
             {
                 string alertId = callbackQuery.Data.Replace("delete_", "");
-                bool success = await DeleteAlertAsync(alertId);
+                bool success = await _azureFunctionsClient.DeleteAlertAsync(alertId);
 
                 if (success)
                 {
@@ -88,60 +94,6 @@ namespace CryptoReportBot
                         text: "❌ Failed to remove alert. Please try again later."
                     );
                 }
-            }
-        }
-
-        private async Task<AlertsResponse> GetAllAlertsAsync()
-        {
-            try
-            {
-                // Construct the URL by replacing insert_new_alert_grani with get_all_alerts
-                string url = _config.AzureFunctionUrl.Replace("insert_new_alert_grani", "get_all_alerts");
-                string functionKey = _config.AzureFunctionKey;
-
-                var response = await _httpClient.GetAsync($"{url}?code={functionKey}");
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Received alerts response: {Content}", content);
-                    var alertsResponse = JsonSerializer.Deserialize<AlertsResponse>(content);
-                    return alertsResponse ?? new AlertsResponse();
-                }
-                else
-                {
-                    _logger.LogError($"Error getting alerts: {response.StatusCode}");
-                    return new AlertsResponse();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching alerts");
-                return new AlertsResponse();
-            }
-        }
-
-        private async Task<bool> DeleteAlertAsync(string alertId)
-        {
-            try
-            {
-                // Construct the URL by replacing insert_new_alert_grani with delete_alert
-                string url = _config.AzureFunctionUrl.Replace("insert_new_alert_grani", "delete_alert");
-                string functionKey = _config.AzureFunctionKey;
-
-                var response = await _httpClient.PostAsJsonAsync(
-                    $"{url}?code={functionKey}",
-                    new { guid = alertId }
-                );
-
-                var responseText = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation($"Delete response status: {response.StatusCode}, Response text: {responseText}");
-
-                return response.IsSuccessStatusCode;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deleting alert");
-                return false;
             }
         }
     }
