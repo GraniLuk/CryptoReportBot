@@ -99,7 +99,7 @@ namespace CryptoReportBot
                     + $"?code={_config.AzureFunctionKey}";
                 
                 var content = new StringContent(
-                    JsonSerializer.Serialize(new { guid = alertId }), 
+                    JsonSerializer.Serialize(new { id = alertId }), 
                     Encoding.UTF8, 
                     "application/json");
 
