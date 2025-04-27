@@ -27,7 +27,7 @@ This bot allows users to:
    ```
 3. Set up the following secrets:
    - `alerts_bot_token`: Your Telegram Bot token
-   - `azure-function-url`: URL to your deployed CryptoPriceAlerts Azure Function
+   - `azure_function_url`: URL to your deployed CryptoPriceAlerts Azure Function
    - `azure_function_key`: Access key for your Azure Function
 
 ## Usage
