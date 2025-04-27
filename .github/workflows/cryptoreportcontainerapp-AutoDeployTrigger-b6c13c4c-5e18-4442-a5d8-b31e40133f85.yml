@@ -30,15 +30,47 @@ jobs:
           client-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_SUBSCRIPTION_ID }}
+          
+      - name: Create .NET Dockerfile for production
+        run: |
+          cat > prod.dockerfile << 'EOF'
+          FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+          WORKDIR /app
+          
+          # Copy everything and restore as distinct layers
+          COPY . .
+          RUN dotnet restore
+          
+          # Build and publish a release
+          RUN dotnet publish -c Release -o out
+          
+          # Build runtime image
+          FROM mcr.microsoft.com/dotnet/aspnet:6.0
+          WORKDIR /app
+          COPY --from=build /app/out .
+          
+          # Set environment variables
+          ENV ASPNETCORE_URLS=http://+:80
+          ENV alerts_bot_token=${alerts_bot_token}
+          ENV azure_function_key=${azure_function_key}
+          ENV azure-function-url=${azure-function-url}
+          
+          EXPOSE 80
+          ENTRYPOINT ["dotnet", "CryptoReportBot.dll"]
+          EOF
 
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}
-          dockerfilePath: prod.dockerfile  # Simplified path since Dockerfile is in root
+          dockerfilePath: prod.dockerfile
           registryUrl: cryptoreportcontainer.azurecr.io
           registryUsername: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}
           containerAppName: cryptoreportcontainerapp
           resourceGroup: alertsfunctiongrani
           imageToBuild: cryptoreportcontainer.azurecr.io/cryptoreportcontainerapp:${{ github.sha }}
+          environmentVariables: |
+            alerts_bot_token=${{ secrets.ALERTS_BOT_TOKEN }}
+            azure_function_key=${{ secrets.AZURE_FUNCTION_KEY }}
+            azure-function-url=${{ secrets.AZURE_FUNCTION_URL }}

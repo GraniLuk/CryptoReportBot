@@ -26,9 +26,9 @@ This bot allows users to:
    pip install -r requirements.txt
    ```
 3. Set up the following secrets:
-   - `alerts-bot-token`: Your Telegram Bot token
+   - `alerts_bot_token`: Your Telegram Bot token
    - `azure-function-url`: URL to your deployed CryptoPriceAlerts Azure Function
-   - `azure-function-key`: Access key for your Azure Function
+   - `azure_function_key`: Access key for your Azure Function
 
 ## Usage
 

@@ -58,9 +58,9 @@ namespace CryptoReportBot
                     
                     var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
                     
-                    _botToken = client.GetSecret("alerts-bot-token").Value.Value;
+                    _botToken = client.GetSecret("alerts_bot_token").Value.Value;
                     _azureFunctionUrl = client.GetSecret("azure-function-url").Value.Value;
-                    _azureFunctionKey = client.GetSecret("azure-function-key").Value.Value;
+                    _azureFunctionKey = client.GetSecret("azure_function_key").Value.Value;
                 }
                 else
                 {
@@ -72,19 +72,19 @@ namespace CryptoReportBot
                     TryLoadUserSecretsDirectly();
 
                     // Debug: Try to retrieve token directly and log result
-                    var tokenValue = _configuration["alerts-bot-token"];
-                    _logger.LogInformation("Direct config access for 'alerts-bot-token': {HasValue}", !string.IsNullOrEmpty(tokenValue));
+                    var tokenValue = _configuration["alerts_bot_token"];
+                    _logger.LogInformation("Direct config access for 'alerts_bot_token': {HasValue}", !string.IsNullOrEmpty(tokenValue));
                     
                     _botToken = tokenValue ?? 
-                               Environment.GetEnvironmentVariable("alerts-bot-token") ??
+                               Environment.GetEnvironmentVariable("alerts_bot_token") ??
                                _botToken; // Use the one loaded directly if available
                     
                     _azureFunctionUrl = _configuration["azure-function-url"] ?? 
                                        Environment.GetEnvironmentVariable("azure-function-url") ??
                                        _azureFunctionUrl;
                     
-                    _azureFunctionKey = _configuration["azure-function-key"] ?? 
-                                       Environment.GetEnvironmentVariable("azure-function-key") ??
+                    _azureFunctionKey = _configuration["azure_function_key"] ?? 
+                                       Environment.GetEnvironmentVariable("azure_function_key") ??
                                        _azureFunctionKey;
 
                     // Log all available configuration keys for debugging
@@ -93,9 +93,9 @@ namespace CryptoReportBot
                         _logger.LogInformation("Available configuration keys:");
                         foreach (var provider in configRoot.Providers)
                         {
-                            if (provider.TryGet("alerts-bot-token", out var value))
+                            if (provider.TryGet("alerts_bot_token", out var value))
                             {
-                                _logger.LogInformation("Found 'alerts-bot-token' in provider {ProviderType} with value length: {Length}", 
+                                _logger.LogInformation("Found 'alerts_bot_token' in provider {ProviderType} with value length: {Length}", 
                                     provider.GetType().Name, value?.Length ?? 0);
                             }
                         }
@@ -104,11 +104,11 @@ namespace CryptoReportBot
                 
                 // Validate with better error messages
                 if (string.IsNullOrEmpty(_botToken)) 
-                    throw new InvalidOperationException("Bot Token is not set. Make sure 'alerts-bot-token' is available in user secrets or environment variables.");
+                    throw new InvalidOperationException("Bot Token is not set. Make sure 'alerts_bot_token' is available in user secrets or environment variables.");
                 if (string.IsNullOrEmpty(_azureFunctionUrl)) 
                     throw new InvalidOperationException("Azure Function URL is not set. Make sure 'azure-function-url' is available in user secrets or environment variables.");
                 if (string.IsNullOrEmpty(_azureFunctionKey)) 
-                    throw new InvalidOperationException("Azure Function Key is not set. Make sure 'azure-function-key' is available in user secrets or environment variables.");
+                    throw new InvalidOperationException("Azure Function Key is not set. Make sure 'azure_function_key' is available in user secrets or environment variables.");
                 
                 _logger.LogInformation("Successfully loaded all required secrets");
             }
@@ -139,9 +139,9 @@ namespace CryptoReportBot
                         .AddJsonFile(secretsFilePath, optional: true)
                         .Build();
                     
-                    _botToken = secretsConfig["alerts-bot-token"];
+                    _botToken = secretsConfig["alerts_bot_token"];
                     _azureFunctionUrl = secretsConfig["azure-function-url"];
-                    _azureFunctionKey = secretsConfig["azure-function-key"];
+                    _azureFunctionKey = secretsConfig["azure_function_key"];
                     
                     _logger.LogInformation("Direct secrets loading - Bot token exists: {HasToken}", 
                         !string.IsNullOrEmpty(_botToken));
