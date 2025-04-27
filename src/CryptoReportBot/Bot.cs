@@ -109,8 +109,7 @@ namespace CryptoReportBot
                 UserStates[userId] = userState;
             }
             
-            // Check if it's a command
-            if (message.Text.StartsWith('/'))
+            if (!string.IsNullOrEmpty(message.Text) && message.Text.StartsWith('/'))
             {
                 var command = message.Text.Split(' ')[0].ToLowerInvariant();
                 switch (command)
