@@ -19,9 +19,9 @@ namespace CryptoReportBot
     {
         private readonly ILogger<ConfigurationManager> _logger;
         private readonly IConfiguration _configuration;
-        private string _botToken;
-        private string _azureFunctionUrl;
-        private string _azureFunctionKey;
+        private string? _botToken = null;
+        private string? _azureFunctionUrl = null;
+        private string? _azureFunctionKey = null;
 
         public ConfigurationManager(ILogger<ConfigurationManager> logger, IConfiguration configuration)
         {
@@ -38,9 +38,9 @@ namespace CryptoReportBot
             LoadSecrets();
         }
 
-        public string BotToken => _botToken;
-        public string AzureFunctionUrl => _azureFunctionUrl;
-        public string AzureFunctionKey => _azureFunctionKey;
+        public string BotToken => _botToken!;
+        public string AzureFunctionUrl => _azureFunctionUrl!;
+        public string AzureFunctionKey => _azureFunctionKey!;
 
         private void LoadSecrets()
         {

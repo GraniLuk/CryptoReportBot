@@ -181,7 +181,7 @@ namespace CryptoReportBot
             }
             
             // Handle callback queries
-            if (callbackQuery.Data.StartsWith("delete_"))
+            if (callbackQuery.Data != null && callbackQuery.Data.StartsWith("delete_"))
             {
                 await _removeAlertHandler.HandleCallbackQueryAsync(_botClient, callbackQuery);
             }
