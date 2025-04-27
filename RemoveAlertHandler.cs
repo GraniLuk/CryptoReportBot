@@ -26,8 +26,10 @@ namespace CryptoReportBot
 
         public async Task HandleAsync(ITelegramBotClient botClient, Message message)
         {
-            var alerts = await GetAllAlertsAsync();
-            if (alerts == null || alerts.Count == 0)
+            var alertsResponse = await GetAllAlertsAsync();
+            var alerts = alertsResponse?.Alerts ?? new List<Alert>();
+            
+            if (alerts.Count == 0)
             {
                 await botClient.SendTextMessageAsync(
                     chatId: message.Chat.Id,
@@ -89,7 +91,7 @@ namespace CryptoReportBot
             }
         }
 
-        private async Task<List<AlertModel>> GetAllAlertsAsync()
+        private async Task<AlertsResponse> GetAllAlertsAsync()
         {
             try
             {
@@ -101,19 +103,20 @@ namespace CryptoReportBot
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var alerts = JsonSerializer.Deserialize<List<AlertModel>>(content);
-                    return alerts ?? new List<AlertModel>();
+                    _logger.LogDebug("Received alerts response: {Content}", content);
+                    var alertsResponse = JsonSerializer.Deserialize<AlertsResponse>(content);
+                    return alertsResponse ?? new AlertsResponse();
                 }
                 else
                 {
                     _logger.LogError($"Error getting alerts: {response.StatusCode}");
-                    return new List<AlertModel>();
+                    return new AlertsResponse();
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching alerts");
-                return new List<AlertModel>();
+                return new AlertsResponse();
             }
         }
 
@@ -141,18 +144,5 @@ namespace CryptoReportBot
                 return false;
             }
         }
-    }
-
-    // Models for serialization/deserialization
-    public class AlertModel
-    {
-        public string Id { get; set; }
-        public string Type { get; set; }
-        public string Symbol { get; set; }
-        public string Symbol1 { get; set; }
-        public string Symbol2 { get; set; }
-        public string Operator { get; set; }
-        public decimal Price { get; set; }
-        public string Description { get; set; }
     }
 }
