@@ -1,3 +1,4 @@
+using CryptoReportBot.Models;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -5,7 +6,6 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using CryptoReportBot.Models;
 
 namespace CryptoReportBot
 {
@@ -95,7 +95,7 @@ namespace CryptoReportBot
             try
             {
                 var url = _config.AzureFunctionUrl
-                    .Replace("insert_new_alert_grani", "delete_alert")
+                    .Replace("insert_new_alert_grani", "remove_alert_grani")
                     + $"?code={_config.AzureFunctionKey}";
                 
                 var content = new StringContent(
