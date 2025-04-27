@@ -90,6 +90,7 @@ namespace CryptoReportBot
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogDebug("Received alerts response: {Content}", content);
                     return JsonSerializer.Deserialize<AlertsResponse>(content);
                 }
                 else
