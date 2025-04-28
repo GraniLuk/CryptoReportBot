@@ -146,8 +146,24 @@ namespace CryptoReportBot
             {
                 // Try to directly load the user secrets file
                 var userSecretsId = "78dfe98c-0b7c-4ef8-a22c-9a998c7ee21f"; // From your .csproj file
+                
+                // Get the application data path and ensure it's not null or empty
                 var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                var secretsFilePath = Path.Combine(appData, "Microsoft", "UserSecrets", userSecretsId, "secrets.json");
+                
+                // In production/container environments, appData might be empty or incorrect
+                // Only attempt to load user secrets if we're in development or have a valid path
+                if (string.IsNullOrEmpty(appData) && !_isDevelopment)
+                {
+                    _logger.LogInformation("Skipping user secrets in production environment without valid ApplicationData path");
+                    return;
+                }
+                
+                // Ensure we have a valid base path
+                var basePath = string.IsNullOrEmpty(appData) ? 
+                    Path.Combine(Directory.GetCurrentDirectory(), "Microsoft", "UserSecrets") : 
+                    Path.Combine(appData, "Microsoft", "UserSecrets");
+                
+                var secretsFilePath = Path.Combine(basePath, userSecretsId, "secrets.json");
                 
                 _logger.LogInformation("Attempting to load secrets directly from: {Path}", secretsFilePath);
                 
