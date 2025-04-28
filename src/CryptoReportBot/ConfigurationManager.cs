@@ -12,7 +12,7 @@ namespace CryptoReportBot
     {
         string BotToken { get; }
         string AzureFunctionUrl { get; }
-        string AzureFunctionKey { get; }
+        string? AzureFunctionKey { get; } // Made nullable to handle missing configuration
     }
 
     public class ConfigurationManager : IConfigurationManager
@@ -22,11 +22,14 @@ namespace CryptoReportBot
         private string? _botToken = null;
         private string? _azureFunctionUrl = null;
         private string? _azureFunctionKey = null;
+        private readonly bool _isDevelopment;
 
         public ConfigurationManager(ILogger<ConfigurationManager> logger, IConfiguration configuration)
         {
             _logger = logger;
             _configuration = configuration;
+            _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || 
+                             Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development";
             
             // Debug: Log available configuration providers
             _logger.LogInformation("Configuration providers:");
@@ -40,7 +43,7 @@ namespace CryptoReportBot
 
         public string BotToken => _botToken!;
         public string AzureFunctionUrl => _azureFunctionUrl!;
-        public string AzureFunctionKey => _azureFunctionKey!;
+        public string? AzureFunctionKey => _azureFunctionKey; // Can be null now
 
         private void LoadSecrets()
         {
@@ -60,7 +63,14 @@ namespace CryptoReportBot
                     
                     _botToken = client.GetSecret("alerts_bot_token").Value.Value;
                     _azureFunctionUrl = client.GetSecret("azure_function_url").Value.Value;
-                    _azureFunctionKey = client.GetSecret("azure_function_key").Value.Value;
+                    
+                    // Try to get Azure Function Key but don't fail if not found in production
+                    try {
+                        _azureFunctionKey = client.GetSecret("azure_function_key").Value.Value;
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning(ex, "Failed to retrieve azure_function_key from Key Vault - some features may be limited");
+                    }
                 }
                 else
                 {
@@ -98,19 +108,30 @@ namespace CryptoReportBot
                                 _logger.LogInformation("Found 'alerts_bot_token' in provider {ProviderType} with value length: {Length}", 
                                     provider.GetType().Name, value?.Length ?? 0);
                             }
+                            
+                            if (provider.TryGet("azure_function_key", out var functionKeyValue))
+                            {
+                                _logger.LogInformation("Found 'azure_function_key' in provider {ProviderType} with value length: {Length}", 
+                                    provider.GetType().Name, functionKeyValue?.Length ?? 0);
+                            }
                         }
                     }
                 }
                 
-                // Validate with better error messages
+                // Validate with better error messages - only Bot Token and URL are required
                 if (string.IsNullOrEmpty(_botToken)) 
                     throw new InvalidOperationException("Bot Token is not set. Make sure 'alerts_bot_token' is available in user secrets or environment variables.");
+                
                 if (string.IsNullOrEmpty(_azureFunctionUrl)) 
                     throw new InvalidOperationException("Azure Function URL is not set. Make sure 'azure_function_url' is available in user secrets or environment variables.");
-                if (string.IsNullOrEmpty(_azureFunctionKey)) 
-                    throw new InvalidOperationException("Azure Function Key is not set. Make sure 'azure_function_key' is available in user secrets or environment variables.");
                 
-                _logger.LogInformation("Successfully loaded all required secrets");
+                // Function key is now optional but we'll log a warning if it's missing
+                if (string.IsNullOrEmpty(_azureFunctionKey)) 
+                {
+                    _logger.LogWarning("Azure Function Key is not set. Some functionality may be limited.");
+                }
+                
+                _logger.LogInformation("Successfully loaded required secrets. Azure Function Key present: {HasFunctionKey}", !string.IsNullOrEmpty(_azureFunctionKey));
             }
             catch (Exception ex)
             {

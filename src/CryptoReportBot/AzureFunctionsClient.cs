@@ -14,6 +14,7 @@ namespace CryptoReportBot
         Task<bool> SendAlertRequestAsync(Dictionary<string, object> data);
         Task<AlertsResponse> GetAllAlertsAsync();
         Task<bool> DeleteAlertAsync(string alertId);
+        bool IsConfigured { get; }
     }
 
     public class AzureFunctionsClient : IAzureFunctionsClient
@@ -32,10 +33,19 @@ namespace CryptoReportBot
             _logger = logger;
         }
 
+        // Property to check if the client is properly configured with an API key
+        public bool IsConfigured => !string.IsNullOrEmpty(_config.AzureFunctionKey);
+
         public async Task<bool> SendAlertRequestAsync(Dictionary<string, object> data)
         {
             try
             {
+                if (!IsConfigured)
+                {
+                    _logger.LogWarning("Cannot send alert: Azure Function Key is not configured");
+                    return false;
+                }
+
                 _logger.LogInformation("Sending alert data: {Data}", JsonSerializer.Serialize(data));
                 
                 var url = $"{_config.AzureFunctionUrl}?code={_config.AzureFunctionKey}";
@@ -65,6 +75,16 @@ namespace CryptoReportBot
         {
             try
             {
+                if (!IsConfigured)
+                {
+                    _logger.LogWarning("Cannot get alerts: Azure Function Key is not configured");
+                    return new AlertsResponse 
+                    { 
+                        Alerts = new List<Alert>(), 
+                        Message = "Function is not available - Azure Function Key not configured" 
+                    };
+                }
+
                 var url = _config.AzureFunctionUrl
                     .Replace("insert_new_alert_grani", "get_all_alerts")
                     + $"?code={_config.AzureFunctionKey}";
@@ -94,6 +114,12 @@ namespace CryptoReportBot
         {
             try
             {
+                if (!IsConfigured)
+                {
+                    _logger.LogWarning("Cannot delete alert: Azure Function Key is not configured");
+                    return false;
+                }
+
                 var url = _config.AzureFunctionUrl
                     .Replace("insert_new_alert_grani", "remove_alert_grani")
                     + $"?code={_config.AzureFunctionKey}";

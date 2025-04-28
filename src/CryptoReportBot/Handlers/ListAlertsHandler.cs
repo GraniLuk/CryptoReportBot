@@ -25,6 +25,18 @@ namespace CryptoReportBot
         {
             _logger.LogInformation("User {UserId} requested to list alerts", message.From.Id);
             
+            // Check if Azure Functions client is configured
+            if (!_azureFunctionsClient.IsConfigured)
+            {
+                await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "❌ Alert listing is currently unavailable due to configuration issues. Please try again later or contact the administrator.",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html
+                );
+                _logger.LogWarning("Failed to list alerts because AzureFunctionsClient is not configured");
+                return;
+            }
+            
             // Get all alerts from API
             var alertsResponse = await _azureFunctionsClient.GetAllAlertsAsync();
             var alerts = alertsResponse?.Alerts;

@@ -32,6 +32,18 @@ namespace CryptoReportBot
 
         public async Task HandleAsync(ITelegramBotClient botClient, Message message)
         {
+            // Check if Azure Functions client is configured
+            if (!_azureFunctionsClient.IsConfigured)
+            {
+                await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "❌ Alert removal is currently unavailable due to configuration issues. Please try again later or contact the administrator.",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html
+                );
+                _logger.LogWarning("Failed to list alerts for removal because AzureFunctionsClient is not configured");
+                return;
+            }
+            
             var alertsResponse = await _azureFunctionsClient.GetAllAlertsAsync();
             var alerts = alertsResponse?.Alerts ?? new List<Alert>();
             
@@ -73,6 +85,25 @@ namespace CryptoReportBot
 
         public async Task HandleCallbackQueryAsync(ITelegramBotClient botClient, CallbackQuery callbackQuery)
         {
+            // Check if Azure Functions client is configured
+            if (!_azureFunctionsClient.IsConfigured)
+            {
+                await botClient.AnswerCallbackQueryAsync(
+                    callbackQueryId: callbackQuery.Id,
+                    text: "Alert removal is currently unavailable due to configuration issues."
+                );
+                
+                await botClient.EditMessageTextAsync(
+                    chatId: callbackQuery.Message.Chat.Id,
+                    messageId: callbackQuery.Message.MessageId,
+                    text: "❌ Alert removal is currently unavailable due to configuration issues. Please try again later or contact the administrator.",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html
+                );
+                
+                _logger.LogWarning("Failed to delete alert because AzureFunctionsClient is not configured");
+                return;
+            }
+            
             if (callbackQuery.Data.StartsWith("delete_"))
             {
                 string alertId = callbackQuery.Data.Replace("delete_", "");

@@ -24,6 +24,18 @@ namespace CryptoReportBot
 
         public async Task StartAsync(ITelegramBotClient botClient, Message message, UserConversationState state)
         {
+            // Check if Azure Functions client is configured before starting
+            if (!_azureFunctionsClient.IsConfigured)
+            {
+                await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "❌ Alert creation is currently unavailable due to configuration issues. Please try again later or contact the administrator.",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html
+                );
+                _logger.LogWarning("Attempted to create alert but AzureFunctionsClient is not configured");
+                return;
+            }
+
             // Reset any existing state and initialize for new alert
             state.ResetState();
             state.Type = "single";
@@ -152,6 +164,18 @@ namespace CryptoReportBot
 
         private async Task HandleSummaryAsync(ITelegramBotClient botClient, Message message, UserConversationState state)
         {
+            // Check again if Azure Functions client is still configured
+            if (!_azureFunctionsClient.IsConfigured)
+            {
+                await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "❌ Alert creation is currently unavailable due to configuration issues. Please try again later or contact the administrator.",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html
+                );
+                _logger.LogWarning("Failed to create alert because AzureFunctionsClient is not configured");
+                return;
+            }
+            
             await botClient.SendTextMessageAsync(
                 chatId: message.Chat.Id,
                 text: "<b>Description added successfully.\nLet's summarize your selections.</b>",
