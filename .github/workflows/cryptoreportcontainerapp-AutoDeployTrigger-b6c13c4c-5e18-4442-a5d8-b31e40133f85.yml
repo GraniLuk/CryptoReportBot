@@ -70,7 +70,7 @@ jobs:
           containerAppName: cryptoreportcontainerapp
           resourceGroup: alertsfunctiongrani
           imageToBuild: cryptoreportcontainer.azurecr.io/cryptoreportcontainerapp:${{ github.sha }}
-          environmentVariables: |
+          environmentVariables: >-
             alerts_bot_token=${{ secrets.alerts_bot_token }}
             azure_function_key=${{ secrets.azure_function_key }}
             azure_function_url=${{ secrets.azure_function_url }}

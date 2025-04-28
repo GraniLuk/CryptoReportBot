@@ -23,6 +23,7 @@ namespace CryptoReportBot
         private string? _azureFunctionUrl = null;
         private string? _azureFunctionKey = null;
         private readonly bool _isDevelopment;
+        private readonly bool _useEnvironmentVars;
 
         public ConfigurationManager(ILogger<ConfigurationManager> logger, IConfiguration configuration)
         {
@@ -30,6 +31,7 @@ namespace CryptoReportBot
             _configuration = configuration;
             _isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || 
                              Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") == "Development";
+            _useEnvironmentVars = Environment.GetEnvironmentVariable("USE_ENVIRONMENT_VARIABLES") == "true";
             
             // Debug: Log available configuration providers
             _logger.LogInformation("Configuration providers:");
@@ -50,8 +52,33 @@ namespace CryptoReportBot
             try
             {
                 _logger.LogInformation("Starting to load secrets...");
+                _logger.LogInformation("Development mode: {IsDevelopment}, Use Env Vars: {UseEnvVars}", 
+                    _isDevelopment, _useEnvironmentVars);
                 
-                // First, check if we're running in production with Key Vault
+                // First check if we should prioritize environment variables (container deployment)
+                if (_useEnvironmentVars)
+                {
+                    _logger.LogInformation("Prioritizing environment variables for configuration");
+                    
+                    // Get directly from environment variables first
+                    _botToken = Environment.GetEnvironmentVariable("alerts_bot_token");
+                    _azureFunctionUrl = Environment.GetEnvironmentVariable("azure_function_url");
+                    _azureFunctionKey = Environment.GetEnvironmentVariable("azure_function_key");
+                    
+                    _logger.LogInformation("Environment variables loaded - Bot token exists: {HasToken}, URL exists: {HasUrl}, Key exists: {HasKey}",
+                        !string.IsNullOrEmpty(_botToken),
+                        !string.IsNullOrEmpty(_azureFunctionUrl),
+                        !string.IsNullOrEmpty(_azureFunctionKey));
+                    
+                    // If all required values are set, return early
+                    if (!string.IsNullOrEmpty(_botToken) && !string.IsNullOrEmpty(_azureFunctionUrl))
+                    {
+                        _logger.LogInformation("All required environment variables found, skipping other configuration sources");
+                        return;
+                    }
+                }
+                
+                // Next, check if we're running in production with Key Vault
                 var keyVaultName = Environment.GetEnvironmentVariable("KEY_VAULT_NAME");
                 
                 if (!string.IsNullOrEmpty(keyVaultName))
@@ -72,7 +99,7 @@ namespace CryptoReportBot
                         _logger.LogWarning(ex, "Failed to retrieve azure_function_key from Key Vault - some features may be limited");
                     }
                 }
-                else
+                else if (!_useEnvironmentVars || _isDevelopment)
                 {
                     // For development, check User Secrets, local.settings.json, or environment variables
                     _logger.LogInformation("Loading secrets from local configuration");
@@ -85,17 +112,15 @@ namespace CryptoReportBot
                     var tokenValue = _configuration["alerts_bot_token"];
                     _logger.LogInformation("Direct config access for 'alerts_bot_token': {HasValue}", !string.IsNullOrEmpty(tokenValue));
                     
-                    _botToken = tokenValue ?? 
-                               Environment.GetEnvironmentVariable("alerts_bot_token") ??
-                               _botToken; // Use the one loaded directly if available
+                    // Only set these values if they're not already set by environment variables
+                    _botToken = _botToken ?? tokenValue ?? 
+                               Environment.GetEnvironmentVariable("alerts_bot_token");
                     
-                    _azureFunctionUrl = _configuration["azure_function_url"] ?? 
-                                       Environment.GetEnvironmentVariable("azure_function_url") ??
-                                       _azureFunctionUrl;
+                    _azureFunctionUrl = _azureFunctionUrl ?? _configuration["azure_function_url"] ?? 
+                                       Environment.GetEnvironmentVariable("azure_function_url");
                     
-                    _azureFunctionKey = _configuration["azure_function_key"] ?? 
-                                       Environment.GetEnvironmentVariable("azure_function_key") ??
-                                       _azureFunctionKey;
+                    _azureFunctionKey = _azureFunctionKey ?? _configuration["azure_function_key"] ?? 
+                                       Environment.GetEnvironmentVariable("azure_function_key");
 
                     // Log all available configuration keys for debugging
                     if (_configuration is IConfigurationRoot configRoot)
@@ -131,7 +156,9 @@ namespace CryptoReportBot
                     _logger.LogWarning("Azure Function Key is not set. Some functionality may be limited.");
                 }
                 
-                _logger.LogInformation("Successfully loaded required secrets. Azure Function Key present: {HasFunctionKey}", !string.IsNullOrEmpty(_azureFunctionKey));
+                _logger.LogInformation("Successfully loaded required secrets. Bot Token length: {TokenLength}, Azure Function Key present: {HasFunctionKey}", 
+                    _botToken?.Length ?? 0,
+                    !string.IsNullOrEmpty(_azureFunctionKey));
             }
             catch (Exception ex)
             {
@@ -176,9 +203,10 @@ namespace CryptoReportBot
                         .AddJsonFile(secretsFilePath, optional: true)
                         .Build();
                     
-                    _botToken = secretsConfig["alerts_bot_token"];
-                    _azureFunctionUrl = secretsConfig["azure_function_url"];
-                    _azureFunctionKey = secretsConfig["azure_function_key"];
+                    // Only set these values if they're not already set
+                    _botToken = _botToken ?? secretsConfig["alerts_bot_token"];
+                    _azureFunctionUrl = _azureFunctionUrl ?? secretsConfig["azure_function_url"];
+                    _azureFunctionKey = _azureFunctionKey ?? secretsConfig["azure_function_key"];
                     
                     _logger.LogInformation("Direct secrets loading - Bot token exists: {HasToken}", 
                         !string.IsNullOrEmpty(_botToken));

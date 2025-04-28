@@ -13,15 +13,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app/out .
 
-# Set environment variables - ensuring case consistency
+# Set environment variables - each on a separate line for clarity
 ENV ASPNETCORE_URLS=http://+:80
-# Setting both uppercase and lowercase versions to maximize compatibility
 ENV alerts_bot_token=${alerts_bot_token}
-ENV ALERTS_BOT_TOKEN=${alerts_bot_token} 
 ENV azure_function_url=${azure_function_url}
-ENV AZURE_FUNCTION_URL=${azure_function_url}
 ENV azure_function_key=${azure_function_key}
-ENV AZURE_FUNCTION_KEY=${azure_function_key}
 # Set this to tell the app to use environment variables directly
 ENV USE_ENVIRONMENT_VARIABLES=true
 
