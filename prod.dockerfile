@@ -5,8 +5,8 @@ WORKDIR /app
 COPY . .
 RUN dotnet restore
 
-# Build and publish a release
-RUN dotnet publish -c Release -o out
+# Build and publish the specific project rather than the solution
+RUN dotnet publish src/CryptoReportBot/CryptoReportBot.csproj -c Release -o out
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0

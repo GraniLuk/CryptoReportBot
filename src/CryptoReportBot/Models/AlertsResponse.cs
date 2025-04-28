@@ -8,5 +8,8 @@ namespace CryptoReportBot.Models
     {
         [JsonPropertyName("alerts")]
         public List<Alert> Alerts { get; set; } = new List<Alert>();
+        
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
     }
 }
