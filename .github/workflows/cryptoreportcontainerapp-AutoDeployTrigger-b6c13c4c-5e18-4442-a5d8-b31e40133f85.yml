@@ -49,11 +49,12 @@ jobs:
           WORKDIR /app
           COPY --from=build /app/out .
           
-          # Set environment variables
+          # Set environment variables - each on a separate line for clarity
           ENV ASPNETCORE_URLS=http://+:80
+          ENV USE_ENVIRONMENT_VARIABLES=true
           ENV alerts_bot_token=${alerts_bot_token}
-          ENV azure_function_key=${azure_function_key}
           ENV azure_function_url=${azure_function_url}
+          ENV azure_function_key=${azure_function_key}
           
           EXPOSE 80
           ENTRYPOINT ["dotnet", "CryptoReportBot.dll"]
@@ -71,6 +72,7 @@ jobs:
           resourceGroup: alertsfunctiongrani
           imageToBuild: cryptoreportcontainer.azurecr.io/cryptoreportcontainerapp:${{ github.sha }}
           environmentVariables: >-
+            USE_ENVIRONMENT_VARIABLES=true
             alerts_bot_token=${{ secrets.alerts_bot_token }}
             azure_function_key=${{ secrets.azure_function_key }}
             azure_function_url=${{ secrets.azure_function_url }}
