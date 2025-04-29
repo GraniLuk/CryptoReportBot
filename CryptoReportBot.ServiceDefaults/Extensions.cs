@@ -1,9 +1,9 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -17,6 +17,10 @@ public static class Extensions
 {
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
+        // Add Application Insights
+        builder.ConfigureApplicationInsights();
+
+        // Configure OpenTelemetry (with Application Insights integration)
         builder.ConfigureOpenTelemetry();
 
         builder.AddDefaultHealthChecks();
@@ -32,11 +36,28 @@ public static class Extensions
             http.AddServiceDiscovery();
         });
 
-        // Uncomment the following to restrict the allowed schemes for service discovery.
-        // builder.Services.Configure<ServiceDiscoveryOptions>(options =>
-        // {
-        //     options.AllowedSchemes = ["https"];
-        // });
+        return builder;
+    }
+
+    public static IHostApplicationBuilder ConfigureApplicationInsights(this IHostApplicationBuilder builder)
+    {
+        // Add Application Insights services
+        builder.Services.AddApplicationInsightsTelemetry(options =>
+        {
+            // Use configuration from environment variable or settings
+            // The connection string will be read from APPLICATIONINSIGHTS_CONNECTION_STRING environment variable
+            
+            // Configure to use CloudRoleInstance and CloudRole name for better identification in the portal
+            options.EnableAdaptiveSampling = true;
+            options.EnableDependencyTrackingTelemetryModule = true;
+            options.EnablePerformanceCounterCollectionModule = true;
+        });
+
+        // Configure logging to use Application Insights
+        builder.Logging.AddApplicationInsights(config =>
+        {
+            config.TrackExceptionsAsExceptionTelemetry = true;
+        });
 
         return builder;
     }
@@ -59,8 +80,6 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddAspNetCoreInstrumentation()
-                    // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
-                    //.AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation();
             });
 
@@ -73,17 +92,22 @@ public static class Extensions
     {
         var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
 
+        var otelBuilder = builder.Services.AddOpenTelemetry();
+
         if (useOtlpExporter)
         {
-            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+            otelBuilder.UseOtlpExporter();
         }
 
-        // Uncomment the following lines to enable the Azure Monitor exporter (requires the Azure.Monitor.OpenTelemetry.AspNetCore package)
-        //if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
-        //{
-        //    builder.Services.AddOpenTelemetry()
-        //       .UseAzureMonitor();
-        //}
+        // Enable the Azure Monitor exporter using the UseAzureMonitor extension method
+        if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+        {
+            // Chain UseAzureMonitor after AddOpenTelemetry
+            otelBuilder.UseAzureMonitor();
+            // You can also configure options here if needed, e.g.:
+            // otelBuilder.UseAzureMonitor(o => o.ConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
+            // Note: UseAzureMonitor typically reads the connection string from the configuration automatically.
+        }
 
         return builder;
     }

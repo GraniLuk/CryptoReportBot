@@ -25,6 +25,10 @@ ENV USE_ENVIRONMENT_VARIABLES=true
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ENV ASPIRE_DASHBOARD_ENABLED=false
 ENV ASPNETCORE_ENVIRONMENT=Production
+# Application Insights connection string - this will be set during deployment
+ENV APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
+# Set service name for better identification in Application Insights
+ENV APPLICATIONINSIGHTS_ROLE_NAME="CryptoReportBot"
 
 EXPOSE 80
 ENTRYPOINT ["dotnet", "CryptoReportBot.dll"]
