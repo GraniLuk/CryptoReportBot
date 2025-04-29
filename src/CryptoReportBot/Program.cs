@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -104,8 +105,7 @@ namespace CryptoReportBot
                     logging.ClearProviders();
                     logging.AddConsole(options => 
                     {
-                        options.IncludeScopes = true;
-                        options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss.fff] ";
+                        // Simple configuration that doesn't use formatter options
                     });
                     
                     // Set minimum log level based on environment
@@ -120,6 +120,8 @@ namespace CryptoReportBot
                     
                     logging.AddFilter("System.Net.Http", LogLevel.Information);
                 })
+                // Add Aspire service defaults for telemetry, health checks, and resilience
+                .AddAspireServiceDefaults()
                 .ConfigureServices((context, services) =>
                 {
                     // Register configuration
