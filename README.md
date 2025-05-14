@@ -14,7 +14,6 @@ This bot allows users to:
 ## Dependencies
 
 - Python 3.7+
-- python-telegram-bot
 - aiohttp
 - Azure Function backend ([CryptoPriceAlerts](https://github.com/GraniLuk/CryptoPriceAlerts))
 
