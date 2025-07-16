@@ -13,6 +13,7 @@ namespace CryptoReportBot
         string BotToken { get; }
         string AzureFunctionUrl { get; }
         string? AzureFunctionKey { get; } // Made nullable to handle missing configuration
+        string? AllowedUserIds { get; }
     }
 
     public class ConfigurationManager : IConfigurationManager
@@ -22,6 +23,7 @@ namespace CryptoReportBot
         private string? _botToken = null;
         private string? _azureFunctionUrl = null;
         private string? _azureFunctionKey = null;
+        private string? _allowedUserIds = null;
         private readonly bool _isDevelopment;
         private readonly bool _useEnvironmentVars;
 
@@ -46,6 +48,7 @@ namespace CryptoReportBot
         public string BotToken => _botToken!;
         public string AzureFunctionUrl => _azureFunctionUrl!;
         public string? AzureFunctionKey => _azureFunctionKey; // Can be null now
+        public string? AllowedUserIds => _allowedUserIds;
 
         private void LoadSecrets()
         {
@@ -64,11 +67,13 @@ namespace CryptoReportBot
                     _botToken = Environment.GetEnvironmentVariable("alerts_bot_token");
                     _azureFunctionUrl = Environment.GetEnvironmentVariable("azure_function_url");
                     _azureFunctionKey = Environment.GetEnvironmentVariable("azure_function_key");
+                    _allowedUserIds = Environment.GetEnvironmentVariable("allowed_user_ids");
                     
-                    _logger.LogInformation("Environment variables loaded - Bot token exists: {HasToken}, URL exists: {HasUrl}, Key exists: {HasKey}",
+                    _logger.LogInformation("Environment variables loaded - Bot token exists: {HasToken}, URL exists: {HasUrl}, Key exists: {HasKey}, Allowed users exists: {HasAllowedUsers}",
                         !string.IsNullOrEmpty(_botToken),
                         !string.IsNullOrEmpty(_azureFunctionUrl),
-                        !string.IsNullOrEmpty(_azureFunctionKey));
+                        !string.IsNullOrEmpty(_azureFunctionKey),
+                        !string.IsNullOrEmpty(_allowedUserIds));
                     
                     // If all required values are set, return early
                     if (!string.IsNullOrEmpty(_botToken) && !string.IsNullOrEmpty(_azureFunctionUrl))
@@ -98,6 +103,14 @@ namespace CryptoReportBot
                     catch (Exception ex) {
                         _logger.LogWarning(ex, "Failed to retrieve azure_function_key from Key Vault - some features may be limited");
                     }
+                    
+                    // Try to get allowed user IDs but don't fail if not found
+                    try {
+                        _allowedUserIds = client.GetSecret("allowed_user_ids").Value.Value;
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning(ex, "Failed to retrieve allowed_user_ids from Key Vault - all users will be allowed");
+                    }
                 }
                 else if (!_useEnvironmentVars || _isDevelopment)
                 {
@@ -121,6 +134,9 @@ namespace CryptoReportBot
                     
                     _azureFunctionKey = _azureFunctionKey ?? _configuration["azure_function_key"] ?? 
                                        Environment.GetEnvironmentVariable("azure_function_key");
+                    
+                    _allowedUserIds = _allowedUserIds ?? _configuration["allowed_user_ids"] ?? 
+                                     Environment.GetEnvironmentVariable("allowed_user_ids");
 
                     // Log all available configuration keys for debugging
                     if (_configuration is IConfigurationRoot configRoot)
@@ -207,6 +223,7 @@ namespace CryptoReportBot
                     _botToken = _botToken ?? secretsConfig["alerts_bot_token"];
                     _azureFunctionUrl = _azureFunctionUrl ?? secretsConfig["azure_function_url"];
                     _azureFunctionKey = _azureFunctionKey ?? secretsConfig["azure_function_key"];
+                    _allowedUserIds = _allowedUserIds ?? secretsConfig["allowed_user_ids"];
                     
                     _logger.LogInformation("Direct secrets loading - Bot token exists: {HasToken}", 
                         !string.IsNullOrEmpty(_botToken));

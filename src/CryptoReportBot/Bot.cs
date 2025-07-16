@@ -30,11 +30,14 @@ namespace CryptoReportBot
         // User states dictionary - simple in-memory state management
         public readonly Dictionary<long, UserConversationState> UserStates = new Dictionary<long, UserConversationState>();
         
+        // Security: Allowed user IDs
+        private readonly HashSet<long> _allowedUserIds;
+        
         // Metrics for monitoring
         private int _totalUpdatesProcessed = 0;
         private int _totalErrorsEncountered = 0;
         private DateTime _startTime;
-        private CancellationTokenSource _pollingCts;
+        private CancellationTokenSource? _pollingCts;
 
         public Bot(
             IConfigurationManager config,
@@ -53,6 +56,26 @@ namespace CryptoReportBot
             
             // Configure culture settings similar to Python version
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            
+            // Initialize allowed user IDs
+            _allowedUserIds = new HashSet<long>();
+            var allowedUsers = config.AllowedUserIds?.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            if (allowedUsers != null)
+            {
+                foreach (var userId in allowedUsers)
+                {
+                    if (long.TryParse(userId.Trim(), out var id))
+                    {
+                        _allowedUserIds.Add(id);
+                    }
+                }
+            }
+            
+            _logger.LogInformation("Bot configured with {Count} allowed users", _allowedUserIds.Count);
+            if (_allowedUserIds.Count == 0)
+            {
+                _logger.LogWarning("No allowed users configured - all users will be able to access the bot. Consider setting 'allowed_user_ids' in configuration for security.");
+            }
             
             // Create Telegram bot client
             _botClient = new TelegramBotClient(_config.BotToken);
@@ -192,6 +215,20 @@ namespace CryptoReportBot
             {
                 // Get or create user state
                 var userId = message.From?.Id ?? throw new InvalidOperationException("Message sender information is missing.");
+                
+                // Security check - only allow authorized users
+                if (!IsUserAuthorized(userId, message.From.Username))
+                {
+                    _logger.LogWarning("Unauthorized access attempt from user {UserId} ({Username})", 
+                        userId, message.From.Username ?? "unknown");
+                        
+                    await _botClient.SendTextMessageAsync(
+                        chatId: message.Chat.Id,
+                        text: "❌ You are not authorized to use this bot."
+                    );
+                    return;
+                }
+                
                 if (!UserStates.TryGetValue(userId, out var userState))
                 {
                     userState = new UserConversationState();
@@ -292,6 +329,19 @@ namespace CryptoReportBot
                 var userId = callbackQuery.From.Id;
                 _logger.LogInformation("Processing callback query: {CallbackData} from user {UserId}", 
                     callbackQuery.Data, userId);
+                
+                // Security check - only allow authorized users
+                if (!IsUserAuthorized(userId, callbackQuery.From.Username))
+                {
+                    _logger.LogWarning("Unauthorized callback query from user {UserId} ({Username})", 
+                        userId, callbackQuery.From.Username ?? "unknown");
+                        
+                    await _botClient.AnswerCallbackQueryAsync(
+                        callbackQueryId: callbackQuery.Id,
+                        text: "You are not authorized to use this bot."
+                    );
+                    return;
+                }
                     
                 if (!UserStates.TryGetValue(userId, out var userState))
                 {
@@ -358,6 +408,21 @@ namespace CryptoReportBot
             }
             
             return Task.CompletedTask;
+        }
+
+        private bool IsUserAuthorized(long userId, string? username)
+        {
+            // Log all access attempts for monitoring
+            _logger.LogInformation("Access attempt from user {UserId} ({Username})", userId, username ?? "unknown");
+            
+            // If no allowed users configured, allow everyone (fallback)
+            if (_allowedUserIds.Count == 0)
+            {
+                _logger.LogWarning("No allowed users configured - allowing all access");
+                return true;
+            }
+            
+            return _allowedUserIds.Contains(userId);
         }
     }
 }
