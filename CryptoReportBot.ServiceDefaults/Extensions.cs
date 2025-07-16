@@ -29,8 +29,21 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            // Turn on resilience by default
-            http.AddStandardResilienceHandler();
+            // Turn on resilience by default with custom timeout configuration
+            http.AddStandardResilienceHandler(options =>
+            {
+                // Configure timeout to 30 seconds minimum as requested
+                options.AttemptTimeout = new Microsoft.Extensions.Http.Resilience.HttpTimeoutStrategyOptions
+                {
+                    Timeout = TimeSpan.FromSeconds(30)
+                };
+                
+                // Configure total timeout for all attempts to 90 seconds
+                options.TotalRequestTimeout = new Microsoft.Extensions.Http.Resilience.HttpTimeoutStrategyOptions
+                {
+                    Timeout = TimeSpan.FromSeconds(90)
+                };
+            });
 
             // Turn on service discovery by default
             http.AddServiceDiscovery();

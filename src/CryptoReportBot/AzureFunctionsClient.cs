@@ -62,7 +62,7 @@ namespace CryptoReportBot
 
                 _logger.LogInformation("Testing connection to Azure Function at {BaseUrl}", new Uri(url).Host);
 
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 var response = await _httpClient.GetAsync(url, cts.Token);
                 
                 var isSuccess = response.IsSuccessStatusCode;

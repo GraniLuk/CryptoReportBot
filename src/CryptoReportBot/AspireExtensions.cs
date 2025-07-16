@@ -36,8 +36,21 @@ namespace CryptoReportBot
             // Configure default resilience handler for HttpClient
             services.ConfigureHttpClientDefaults(builder =>
             {
-                // Add standard resilience policy with exponential backoff
-                builder.AddStandardResilienceHandler();
+                // Add standard resilience policy with custom timeout configuration
+                builder.AddStandardResilienceHandler(options =>
+                {
+                    // Configure timeout to 30 seconds minimum as requested
+                    options.AttemptTimeout = new HttpTimeoutStrategyOptions
+                    {
+                        Timeout = TimeSpan.FromSeconds(30)
+                    };
+                    
+                    // Configure total timeout for all attempts to 90 seconds
+                    options.TotalRequestTimeout = new HttpTimeoutStrategyOptions
+                    {
+                        Timeout = TimeSpan.FromSeconds(90)
+                    };
+                });
             });
 
             return services;
