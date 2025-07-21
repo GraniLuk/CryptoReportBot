@@ -84,35 +84,68 @@ namespace CryptoReportBot
 
         public async Task StartAsync()
         {
-            try
+            const int maxStartupRetries = 3;
+            var retryDelay = TimeSpan.FromSeconds(5);
+            
+            for (int attempt = 1; attempt <= maxStartupRetries; attempt++)
             {
-                _logger.LogInformation("Starting bot with polling approach");
-                
-                _pollingCts = new CancellationTokenSource();
-                
-                var receiverOptions = new ReceiverOptions
+                try
                 {
-                    AllowedUpdates = Array.Empty<UpdateType>(), // Receive all update types
-                    ThrowPendingUpdates = true, // Skip old updates on startup
-                };
-                
-                // Start a watchdog timer to log status periodically
-                StartWatchdogTimer();
-                
-                _botClient.StartReceiving(
-                    updateHandler: HandleUpdateAsync,
-                    pollingErrorHandler: HandlePollingErrorAsync,
-                    receiverOptions: receiverOptions,
-                    cancellationToken: _pollingCts.Token
-                );
-                
-                var me = await _botClient.GetMeAsync(_pollingCts.Token);
-                _logger.LogInformation("Bot started: {Username}", me.Username);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical(ex, "Critical error during bot startup");
-                throw; // Rethrow to ensure the application terminates if bot can't start
+                    _logger.LogInformation("Starting bot with polling approach (attempt {Attempt}/{MaxAttempts})", 
+                        attempt, maxStartupRetries);
+                    
+                    _pollingCts = new CancellationTokenSource();
+                    
+                    // Clear any existing webhooks that might cause conflicts
+                    await ClearWebhookAsync();
+                    
+                    var receiverOptions = new ReceiverOptions
+                    {
+                        AllowedUpdates = Array.Empty<UpdateType>(), // Receive all update types
+                        ThrowPendingUpdates = true, // Skip old updates on startup
+                    };
+                    
+                    // Start a watchdog timer to log status periodically
+                    StartWatchdogTimer();
+                    
+                    _botClient.StartReceiving(
+                        updateHandler: HandleUpdateAsync,
+                        pollingErrorHandler: HandlePollingErrorAsync,
+                        receiverOptions: receiverOptions,
+                        cancellationToken: _pollingCts.Token
+                    );
+                    
+                    var me = await _botClient.GetMeAsync(_pollingCts.Token);
+                    _logger.LogInformation("Bot started successfully: {Username}", me.Username);
+                    return; // Success, exit the retry loop
+                }
+                catch (ApiRequestException ex) when (ex.ErrorCode == 409)
+                {
+                    _logger.LogWarning("Bot conflict on startup attempt {Attempt}: {Message}", attempt, ex.Message);
+                    
+                    if (attempt == maxStartupRetries)
+                    {
+                        _logger.LogError("Failed to start bot after {MaxAttempts} attempts due to conflicts. " +
+                            "Please ensure no other instances are running and try again.", maxStartupRetries);
+                        throw;
+                    }
+                    
+                    _logger.LogInformation("Waiting {Delay} seconds before retry...", retryDelay.TotalSeconds);
+                    await Task.Delay(retryDelay);
+                    retryDelay = TimeSpan.FromSeconds(retryDelay.TotalSeconds * 2); // Exponential backoff
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogCritical(ex, "Critical error during bot startup on attempt {Attempt}", attempt);
+                    
+                    if (attempt == maxStartupRetries)
+                    {
+                        throw; // Rethrow to ensure the application terminates if bot can't start
+                    }
+                    
+                    _logger.LogInformation("Waiting {Delay} seconds before retry...", retryDelay.TotalSeconds);
+                    await Task.Delay(retryDelay);
+                }
             }
         }
 
@@ -143,6 +176,23 @@ namespace CryptoReportBot
                     _logger.LogError(ex, "Error in watchdog timer");
                 }
             }, null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10)); // Report every 10 minutes
+        }
+
+        private async Task ClearWebhookAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Clearing any existing webhooks...");
+                
+                // Delete webhook to ensure polling mode works
+                await _botClient.DeleteWebhookAsync(dropPendingUpdates: true);
+                
+                _logger.LogInformation("Webhooks cleared successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clear webhooks (this is usually not critical): {Message}", ex.Message);
+            }
         }
 
         private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
@@ -393,18 +443,47 @@ namespace CryptoReportBot
             _logger.LogError("Polling error: {ErrorMessage}, StackTrace: {StackTrace}", 
                 errorMessage, exception.StackTrace);
             
-            // If there is a conflict (another bot instance), exit
+            // If there is a conflict (another bot instance), try to recover gracefully
             if (exception is ApiRequestException apiEx && apiEx.ErrorCode == 409)
             {
-                _logger.LogError("Another bot instance is running. Shutting down...");
-                Environment.Exit(1);
+                _logger.LogWarning("Bot instance conflict detected (409). This might be due to:");
+                _logger.LogWarning("1. Previous instance still running");
+                _logger.LogWarning("2. Webhook configuration conflict");
+                _logger.LogWarning("3. Multiple deployments running");
+                _logger.LogWarning("Attempting graceful recovery...");
+                
+                // Instead of immediately exiting, try to clear webhooks and restart
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken); // Wait a bit
+                        await ClearWebhookAsync(); // Clear any conflicting webhooks
+                        _logger.LogInformation("Cleared webhooks, polling should resume automatically");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to recover from 409 error");
+                        _logger.LogCritical("Unable to resolve bot conflict. Shutting down to prevent resource conflicts.");
+                        Environment.Exit(1);
+                    }
+                }, cancellationToken);
+                
+                return Task.CompletedTask;
             }
             
             // For network errors, add a delay to prevent rapid reconnection attempts
             if (exception is System.Net.Http.HttpRequestException)
             {
                 _logger.LogWarning("Network error detected. Waiting before reconnecting...");
-                Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).Wait(cancellationToken);
+                try
+                {
+                    Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).Wait(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore cancellation during delay
+                }
             }
             
             return Task.CompletedTask;
