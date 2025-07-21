@@ -49,12 +49,9 @@ jobs:
           WORKDIR /app
           COPY --from=build /app/out .
           
-          # Set environment variables - each on a separate line for clarity
+          # Set basic runtime environment variables
           ENV ASPNETCORE_URLS=http://+:80
           ENV USE_ENVIRONMENT_VARIABLES=true
-          ENV alerts_bot_token=${alerts_bot_token}
-          ENV azure_function_url=${azure_function_url}
-          ENV azure_function_key=${azure_function_key}
           
           EXPOSE 80
           ENTRYPOINT ["dotnet", "CryptoReportBot.dll"]
