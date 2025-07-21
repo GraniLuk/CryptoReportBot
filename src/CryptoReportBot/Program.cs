@@ -36,9 +36,34 @@ namespace CryptoReportBot
 
             try
             {
+                // Validate configuration early
+                logger.LogInformation("Validating configuration...");
+                var config = host.Services.GetRequiredService<IConfigurationManager>();
+                
+                // Trigger lazy loading and validation by accessing properties
+                try
+                {
+                    var botToken = config.BotToken;
+                    var azureUrl = config.AzureFunctionUrl;
+                    logger.LogInformation("Configuration validation successful");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    logger.LogCritical("Configuration validation failed: {Error}", ex.Message);
+                    logger.LogError("Please ensure the following environment variables are set:");
+                    logger.LogError("- alerts_bot_token: Your Telegram bot token");
+                    logger.LogError("- azure_function_url: URL of your Azure Function");
+                    logger.LogError("- azure_function_key: (Optional) Azure Function access key");
+                    logger.LogError("- allowed_user_ids: (Optional) Comma-separated list of allowed Telegram user IDs");
+                    throw;
+                }
+                
                 // Retrieve Bot instance and start it
                 var bot = host.Services.GetRequiredService<Bot>();
+                logger.LogInformation("Bot service resolved successfully");
+                
                 await bot.StartAsync();
+                logger.LogInformation("Bot started successfully");
                 
                 // Start periodic health check
                 var healthCheckTimer = new Timer(
@@ -49,9 +74,26 @@ namespace CryptoReportBot
                 
                 await host.RunAsync();
             }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Bot token") || ex.Message.Contains("Azure Function"))
+            {
+                logger.LogCritical(ex, "Configuration error - missing required settings");
+                logger.LogError("Please ensure the following environment variables are set:");
+                logger.LogError("- alerts_bot_token: Your Telegram bot token");
+                logger.LogError("- azure_function_url: URL of your Azure Function");
+                logger.LogError("- azure_function_key: (Optional) Azure Function access key");
+                logger.LogError("- allowed_user_ids: (Optional) Comma-separated list of allowed Telegram user IDs");
+                throw;
+            }
             catch (Exception ex)
             {
                 logger.LogCritical(ex, "Application terminated unexpectedly");
+                
+                // Additional diagnostics for dependency injection failures
+                if (ex.Message.Contains("dependency injection") || ex.GetType().Name.Contains("ServiceProvider"))
+                {
+                    logger.LogError("This appears to be a dependency injection error. Check that all services are properly registered.");
+                }
+                
                 throw;
             }
             finally
@@ -89,17 +131,6 @@ namespace CryptoReportBot
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((hostContext, config) =>
-                {
-                    // Add User Secrets in development environment
-                    if (hostContext.HostingEnvironment.IsDevelopment())
-                    {
-                        config.AddUserSecrets<Program>();
-                    }
-                    
-                    // Add local.settings.json if it exists (for local development)
-                    config.AddJsonFile("local.settings.json", optional: true, reloadOnChange: true);
-                })
                 .ConfigureLogging((context, logging) =>
                 {
                     logging.ClearProviders();
@@ -124,7 +155,7 @@ namespace CryptoReportBot
                 .AddAspireServiceDefaults()
                 .ConfigureServices((context, services) =>
                 {
-                    // Register configuration
+                    // Register configuration (simplified - only uses environment variables)
                     services.AddSingleton<IConfigurationManager, ConfigurationManager>();
                     
                     // Register core services
