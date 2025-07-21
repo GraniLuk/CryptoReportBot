@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -151,8 +150,6 @@ namespace CryptoReportBot
                     
                     logging.AddFilter("System.Net.Http", LogLevel.Information);
                 })
-                // Add Aspire service defaults for telemetry, health checks, and resilience
-                .AddAspireServiceDefaults()
                 .ConfigureServices((context, services) =>
                 {
                     // Register configuration (simplified - only uses environment variables)
