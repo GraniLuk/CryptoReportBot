@@ -1,4 +1,4 @@
-name: Trigger auto deployment for cryptoreportcontainerapp
+name: Trigger auto deployment for cryptotelegram
 
 # When this action will be executed
 on:
@@ -65,9 +65,9 @@ jobs:
           registryUrl: cryptoreportcontainer.azurecr.io
           registryUsername: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}
-          containerAppName: cryptoreportcontainerapp
+          containerAppName: cryptotelegram
           resourceGroup: alertsfunctiongrani
-          imageToBuild: cryptoreportcontainer.azurecr.io/cryptoreportcontainerapp:${{ github.sha }}
+          imageToBuild: cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }}
           environmentVariables: >-
             USE_ENVIRONMENT_VARIABLES=true
             alerts_bot_token=${{ secrets.alerts_bot_token }}
