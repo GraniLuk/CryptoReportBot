@@ -1,4 +1,4 @@
-name: Trigger auto deployment for cryptotelegram
+name: Deploy CryptoReportBot to Azure Web App
 
 # When this action will be executed
 on:
@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout to the branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_TENANT_ID }}
@@ -41,7 +41,7 @@ jobs:
           COPY . .
           RUN dotnet restore
           
-          # Build and publish the specific project rather than the solution
+          # Build and publish the specific project
           RUN dotnet publish src/CryptoReportBot/CryptoReportBot.csproj -c Release -o out
           
           # Build runtime image
@@ -52,25 +52,42 @@ jobs:
           # Set basic runtime environment variables
           ENV ASPNETCORE_URLS=http://+:80
           ENV USE_ENVIRONMENT_VARIABLES=true
+          ENV ASPNETCORE_ENVIRONMENT=Production
+          ENV APPLICATIONINSIGHTS_ROLE_NAME="CryptoReportBot"
           
           EXPOSE 80
           ENTRYPOINT ["dotnet", "CryptoReportBot.dll"]
           EOF
 
+      - name: Login to Azure Container Registry
+        run: |
+          echo ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }} | docker login cryptoreportcontainer.azurecr.io \
+            --username ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }} \
+            --password-stdin
+
       - name: Build and push container image to registry
-        uses: azure/container-apps-deploy-action@v2
+        run: |
+          docker build -f prod.dockerfile -t cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }} .
+          docker push cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
         with:
-          appSourcePath: ${{ github.workspace }}
-          dockerfilePath: prod.dockerfile
-          registryUrl: cryptoreportcontainer.azurecr.io
-          registryUsername: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}
-          containerAppName: cryptotelegram
-          resourceGroup: alertsfunctiongrani
-          imageToBuild: cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }}
-          environmentVariables: >-
-            USE_ENVIRONMENT_VARIABLES=true
-            alerts_bot_token=${{ secrets.alerts_bot_token }}
-            azure_function_key=${{ secrets.azure_function_key }}
-            azure_function_url=${{ secrets.azure_function_url }}
-            allowed_user_ids=${{ secrets.allowed_user_ids }}
+          app-name: CryptoReportBot
+          images: cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }}
+          
+      - name: Configure Web App Settings
+        run: |
+          az webapp config appsettings set \
+            --name CryptoReportBot \
+            --resource-group alertsfunctiongrani \
+            --settings \
+              USE_ENVIRONMENT_VARIABLES=true \
+              alerts_bot_token="${{ secrets.alerts_bot_token }}" \
+              azure_function_key="${{ secrets.azure_function_key }}" \
+              azure_function_url="${{ secrets.azure_function_url }}" \
+              allowed_user_ids="${{ secrets.allowed_user_ids }}" \
+              DOCKER_REGISTRY_SERVER_URL="https://cryptoreportcontainer.azurecr.io" \
+              DOCKER_REGISTRY_SERVER_USERNAME="${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}" \
+              DOCKER_REGISTRY_SERVER_PASSWORD="${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}" \
+              WEBSITES_ENABLE_APP_SERVICE_STORAGE=false

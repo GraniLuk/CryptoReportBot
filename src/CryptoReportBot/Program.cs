@@ -2,6 +2,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -130,6 +134,33 @@ namespace CryptoReportBot
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder.UseUrls("http://+:80");
+                    webBuilder.Configure(app =>
+                    {
+                        // Add health check endpoint
+                        app.UseRouting();
+                        app.UseEndpoints(endpoints =>
+                        {
+                            endpoints.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+                            {
+                                ResultStatusCodes =
+                                {
+                                    [HealthStatus.Healthy] = StatusCodes.Status200OK,
+                                    [HealthStatus.Degraded] = StatusCodes.Status200OK,
+                                    [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+                                }
+                            });
+                            
+                            // Add a simple root endpoint
+                            endpoints.MapGet("/", async context =>
+                            {
+                                await context.Response.WriteAsync("CryptoReportBot is running");
+                            });
+                        });
+                    });
+                })
                 .ConfigureLogging((context, logging) =>
                 {
                     logging.ClearProviders();
@@ -152,6 +183,10 @@ namespace CryptoReportBot
                 })
                 .ConfigureServices((context, services) =>
                 {
+                    // Add health checks
+                    services.AddHealthChecks()
+                        .AddCheck("self", () => HealthCheckResult.Healthy("Bot is running"));
+                    
                     // Register configuration (simplified - only uses environment variables)
                     services.AddSingleton<IConfigurationManager, ConfigurationManager>();
                     

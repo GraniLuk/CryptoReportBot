@@ -1,0 +1,12 @@
+name: CryptoReportBot
+metadata:
+  template: minimal
+infra:
+  provider: bicep
+  path: infra
+
+services:
+  cryptoreportbot:
+    project: src\CryptoReportBot
+    host: appservice
+    language: dotnet
