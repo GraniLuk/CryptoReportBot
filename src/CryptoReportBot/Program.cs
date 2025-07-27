@@ -187,6 +187,9 @@ namespace CryptoReportBot
                     services.AddHealthChecks()
                         .AddCheck("self", () => HealthCheckResult.Healthy("Bot is running"));
                     
+                    // Add Application Insights
+                    services.AddApplicationInsightsTelemetry();
+                    
                     // Register configuration (simplified - only uses environment variables)
                     services.AddSingleton<IConfigurationManager, ConfigurationManager>();
                     
