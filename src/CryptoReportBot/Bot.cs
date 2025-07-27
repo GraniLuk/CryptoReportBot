@@ -149,12 +149,13 @@ namespace CryptoReportBot
             }
         }
 
-        public async Task StopAsync()
+        public Task StopAsync()
         {
             _logger.LogInformation("Stopping bot...");
             _pollingCts?.Cancel();
             _logger.LogInformation("Bot stopped at: {Time}, Total updates processed: {Updates}, Total errors: {Errors}", 
                 DateTime.UtcNow, _totalUpdatesProcessed, _totalErrorsEncountered);
+            return Task.CompletedTask;
         }
 
         private void StartWatchdogTimer()
@@ -502,6 +503,55 @@ namespace CryptoReportBot
             }
             
             return _allowedUserIds.Contains(userId);
+        }
+        
+        /// <summary>
+        /// Handle incoming webhook updates from Telegram
+        /// </summary>
+        public async Task HandleWebhookUpdateAsync(Update update)
+        {
+            try
+            {
+                await HandleUpdateAsync(_botClient, update, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling webhook update");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Configure webhook mode instead of polling
+        /// </summary>
+        public async Task StartWithWebhookAsync(string webhookUrl)
+        {
+            try
+            {
+                _startTime = DateTime.UtcNow;
+                _pollingCts = new CancellationTokenSource();
+                
+                _logger.LogInformation("Setting up webhook at: {WebhookUrl}", webhookUrl);
+                
+                // Set up the webhook
+                await _botClient.SetWebhookAsync(
+                    url: webhookUrl,
+                    allowedUpdates: Array.Empty<UpdateType>(), // Receive all update types
+                    cancellationToken: _pollingCts.Token
+                );
+                
+                var me = await _botClient.GetMeAsync(_pollingCts.Token);
+                _logger.LogInformation("Bot webhook configured successfully: {Username}", me.Username);
+                _logger.LogInformation("Webhook URL: {WebhookUrl}", webhookUrl);
+                
+                // Start the watchdog timer
+                StartWatchdogTimer();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "Failed to configure webhook");
+                throw;
+            }
         }
     }
 }

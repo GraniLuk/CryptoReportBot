@@ -107,8 +107,22 @@ namespace CryptoReportBot
                 var bot = host.Services.GetRequiredService<Bot>();
                 logger.LogInformation("Bot service resolved successfully");
                 
-                await bot.StartAsync();
-                logger.LogInformation("Bot started successfully");
+                // Check if webhook mode is requested (useful to avoid polling conflicts)
+                var webhookMode = Environment.GetEnvironmentVariable("WEBHOOK_MODE")?.ToLowerInvariant() == "true";
+                var webhookUrl = Environment.GetEnvironmentVariable("WEBHOOK_URL");
+                
+                if (webhookMode && !string.IsNullOrEmpty(webhookUrl))
+                {
+                    logger.LogInformation("Starting bot in webhook mode with URL: {WebhookUrl}", webhookUrl);
+                    await bot.StartWithWebhookAsync(webhookUrl);
+                    logger.LogInformation("Bot webhook configured successfully");
+                }
+                else
+                {
+                    logger.LogInformation("Starting bot in polling mode");
+                    await bot.StartAsync();
+                    logger.LogInformation("Bot started successfully");
+                }
                 
                 // Start periodic health check
                 var healthCheckTimer = new Timer(
@@ -199,6 +213,42 @@ namespace CryptoReportBot
                             endpoints.MapGet("/", async context =>
                             {
                                 await context.Response.WriteAsync("CryptoReportBot is running");
+                            });
+                            
+                            // Add webhook endpoint for Telegram
+                            endpoints.MapPost("/webhook", async context =>
+                            {
+                                try
+                                {
+                                    var bot = context.RequestServices.GetRequiredService<Bot>();
+                                    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+                                    
+                                    using var reader = new System.IO.StreamReader(context.Request.Body);
+                                    var json = await reader.ReadToEndAsync();
+                                    
+                                    if (!string.IsNullOrEmpty(json))
+                                    {
+                                        var update = System.Text.Json.JsonSerializer.Deserialize<Telegram.Bot.Types.Update>(json);
+                                        if (update != null)
+                                        {
+                                            await bot.HandleWebhookUpdateAsync(update);
+                                            context.Response.StatusCode = 200;
+                                            await context.Response.WriteAsync("OK");
+                                            return;
+                                        }
+                                    }
+                                    
+                                    logger.LogWarning("Received empty or invalid webhook payload");
+                                    context.Response.StatusCode = 400;
+                                    await context.Response.WriteAsync("Bad Request");
+                                }
+                                catch (Exception ex)
+                                {
+                                    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+                                    logger.LogError(ex, "Error processing webhook");
+                                    context.Response.StatusCode = 500;
+                                    await context.Response.WriteAsync("Internal Server Error");
+                                }
                             });
                         });
                     });
