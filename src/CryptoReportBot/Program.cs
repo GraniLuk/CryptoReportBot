@@ -62,6 +62,28 @@ namespace CryptoReportBot
                     throw;
                 }
                 
+                // Ensure only one bot instance runs at a time using singleton lock
+                logger.LogInformation("Acquiring singleton lock to prevent multiple bot instances...");
+                using var singletonManager = new SingletonBotManager(host.Services.GetRequiredService<ILogger<SingletonBotManager>>());
+                
+                // First try immediate lock
+                var lockAcquired = await singletonManager.TryAcquireLockAsync();
+                if (!lockAcquired)
+                {
+                    logger.LogWarning("Another bot instance detected. Waiting for it to stop...");
+                    // Wait up to 30 seconds for other instance to stop
+                    lockAcquired = await singletonManager.WaitAndAcquireLockAsync(TimeSpan.FromSeconds(30));
+                    
+                    if (!lockAcquired)
+                    {
+                        logger.LogError("Could not acquire singleton lock. Another instance may be running or there's a stale lock file.");
+                        logger.LogInformation("You can manually delete the lock file if you're sure no other instance is running.");
+                        return; // Exit gracefully instead of throwing
+                    }
+                }
+                
+                logger.LogInformation("✅ Singleton lock acquired. This is the only bot instance running.");
+                
                 // Force resolve any bot conflicts before starting
                 logger.LogInformation("Checking for bot conflicts and resolving them...");
                 var httpClient = host.Services.GetRequiredService<HttpClient>();
