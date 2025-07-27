@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -59,6 +60,25 @@ namespace CryptoReportBot
                     logger.LogError("- azure_function_key: (Optional) Azure Function access key");
                     logger.LogError("- allowed_user_ids: (Optional) Comma-separated list of allowed Telegram user IDs");
                     throw;
+                }
+                
+                // Force resolve any bot conflicts before starting
+                logger.LogInformation("Checking for bot conflicts and resolving them...");
+                var httpClient = host.Services.GetRequiredService<HttpClient>();
+                var conflictResolver = new TelegramBotConflictResolver(
+                    config.BotToken, 
+                    host.Services.GetRequiredService<ILogger<TelegramBotConflictResolver>>(),
+                    httpClient);
+                
+                // Get diagnostics first
+                var diagnostics = await conflictResolver.GetConflictDiagnosticsAsync();
+                logger.LogInformation("Bot conflict diagnostics:\n{Diagnostics}", diagnostics);
+                
+                // Force resolve conflicts
+                var conflictResolved = await conflictResolver.ForceResolveConflictsAsync();
+                if (!conflictResolved)
+                {
+                    logger.LogWarning("Could not fully resolve bot conflicts, but continuing anyway...");
                 }
                 
                 // Retrieve Bot instance and start it
