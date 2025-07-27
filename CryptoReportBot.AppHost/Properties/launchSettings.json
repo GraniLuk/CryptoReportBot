@@ -10,7 +10,11 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",
         "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:21161",
-        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22210"
+        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22210",
+        "alerts_bot_token": "5404057852:AAHUwEWtoQaFDwoZFZFrOdNwbuzHnbEn6ZQ",
+        "azure_function_url": "YOUR_AZURE_FUNCTION_URL_HERE",
+        "azure_function_key": "YOUR_AZURE_FUNCTION_KEY_HERE",
+        "allowed_user_ids": "123456789,987654321"
       }
     },
     "http": {
@@ -22,7 +26,11 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",
         "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:19165",
-        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:20129"
+        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:20129",
+        "alerts_bot_token": "5404057852:AAHUwEWtoQaFDwoZFZFrOdNwbuzHnbEn6ZQ",
+        "azure_function_url": "YOUR_AZURE_FUNCTION_URL_HERE",
+        "azure_function_key": "YOUR_AZURE_FUNCTION_KEY_HERE",
+        "allowed_user_ids": "123456789,987654321"
       }
     }
   }

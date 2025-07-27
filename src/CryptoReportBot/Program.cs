@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,21 @@ namespace CryptoReportBot
                 eventArgs.SetObserved(); // Prevent the process from terminating
                 System.Diagnostics.Trace.Flush();
             };
+            
+            // Add detailed environment diagnostics for Docker investigation
+            Console.WriteLine("=== ENVIRONMENT DIAGNOSTICS ===");
+            Console.WriteLine($"Process ID: {Environment.ProcessId}");
+            Console.WriteLine($"Machine Name: {Environment.MachineName}");
+            Console.WriteLine($"OS Version: {Environment.OSVersion}");
+            Console.WriteLine($"Working Directory: {Environment.CurrentDirectory}");
+            Console.WriteLine($"Command Line: {Environment.CommandLine}");
+            Console.WriteLine($"Is Docker Container: {File.Exists("/.dockerenv")}");
+            Console.WriteLine($"Temp Path: {Path.GetTempPath()}");
+            Console.WriteLine($"Environment Variables:");
+            Console.WriteLine($"  ASPNETCORE_ENVIRONMENT: {Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}");
+            Console.WriteLine($"  WEBHOOK_MODE: {Environment.GetEnvironmentVariable("WEBHOOK_MODE")}");
+            Console.WriteLine($"  alerts_bot_token exists: {!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("alerts_bot_token"))}");
+            Console.WriteLine("=== END DIAGNOSTICS ===");
             
             using IHost host = CreateHostBuilder(args).Build();
 
@@ -192,7 +208,7 @@ namespace CryptoReportBot
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseUrls("http://+:80");
+                    webBuilder.UseUrls("http://localhost:8080");
                     webBuilder.Configure(app =>
                     {
                         // Add health check endpoint
