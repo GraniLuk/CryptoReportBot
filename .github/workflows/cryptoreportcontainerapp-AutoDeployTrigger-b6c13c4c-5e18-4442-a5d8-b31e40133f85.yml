@@ -24,6 +24,11 @@ jobs:
       - name: Checkout to the branch
         uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -31,50 +36,20 @@ jobs:
           tenant-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.CRYPTOREPORTCONTAINERAPP_AZURE_SUBSCRIPTION_ID }}
           
-      - name: Create .NET Dockerfile for production
-        run: |
-          cat > prod.dockerfile << 'EOF'
-          FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-          WORKDIR /app
-          
-          # Copy everything and restore as distinct layers
-          COPY . .
-          RUN dotnet restore
-          
-          # Build and publish the specific project
-          RUN dotnet publish src/CryptoReportBot/CryptoReportBot.csproj -c Release -o out
-          
-          # Build runtime image
-          FROM mcr.microsoft.com/dotnet/aspnet:9.0
-          WORKDIR /app
-          COPY --from=build /app/out .
-          
-          # Set basic runtime environment variables
-          ENV ASPNETCORE_URLS=http://+:80
-          ENV USE_ENVIRONMENT_VARIABLES=true
-          ENV ASPNETCORE_ENVIRONMENT=Production
-          ENV APPLICATIONINSIGHTS_ROLE_NAME="CryptoReportBot"
-          
-          EXPOSE 80
-          ENTRYPOINT ["dotnet", "CryptoReportBot.dll"]
-          EOF
+      - name: Restore dependencies
+        run: dotnet restore
 
-      - name: Login to Azure Container Registry
-        run: |
-          echo ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }} | docker login cryptoreportcontainer.azurecr.io \
-            --username ${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }} \
-            --password-stdin
+      - name: Build application
+        run: dotnet build --no-restore --configuration Release
 
-      - name: Build and push container image to registry
-        run: |
-          docker build -f prod.dockerfile -t cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }} .
-          docker push cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }}
+      - name: Publish application
+        run: dotnet publish src/CryptoReportBot/CryptoReportBot.csproj --no-build --configuration Release --output ./publish
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: CryptoReportBot
-          images: cryptoreportcontainer.azurecr.io/cryptotelegram:${{ github.sha }}
+          package: ./publish
           
       - name: Configure Web App Settings
         run: |
@@ -87,7 +62,5 @@ jobs:
               azure_function_key="${{ secrets.azure_function_key }}" \
               azure_function_url="${{ secrets.azure_function_url }}" \
               allowed_user_ids="${{ secrets.allowed_user_ids }}" \
-              DOCKER_REGISTRY_SERVER_URL="https://cryptoreportcontainer.azurecr.io" \
-              DOCKER_REGISTRY_SERVER_USERNAME="${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_USERNAME }}" \
-              DOCKER_REGISTRY_SERVER_PASSWORD="${{ secrets.CRYPTOREPORTCONTAINERAPP_REGISTRY_PASSWORD }}" \
-              WEBSITES_ENABLE_APP_SERVICE_STORAGE=false
+              ASPNETCORE_ENVIRONMENT=Production \
+              ASPNETCORE_URLS="http://+:80"
