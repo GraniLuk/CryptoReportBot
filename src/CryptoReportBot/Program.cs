@@ -56,98 +56,31 @@ namespace CryptoReportBot
 
             try
             {
-                // Validate configuration early
-                logger.LogInformation("Validating configuration...");
-                var config = host.Services.GetRequiredService<IConfigurationManager>();
+                // Start the web host immediately so Azure can health check it
+                var hostTask = host.RunAsync();
                 
-                // Trigger lazy loading and validation by accessing properties
-                try
+                // Run bot initialization in background task
+                var botInitTask = Task.Run(async () =>
                 {
-                    var botToken = config.BotToken;
-                    var azureUrl = config.AzureFunctionUrl;
-                    logger.LogInformation("Configuration validation successful");
-                }
-                catch (InvalidOperationException ex)
-                {
-                    logger.LogCritical("Configuration validation failed: {Error}", ex.Message);
-                    logger.LogError("Please ensure the following environment variables are set:");
-                    logger.LogError("- alerts_bot_token: Your Telegram bot token");
-                    logger.LogError("- azure_function_url: URL of your Azure Function");
-                    logger.LogError("- azure_function_key: (Optional) Azure Function access key");
-                    logger.LogError("- allowed_user_ids: (Optional) Comma-separated list of allowed Telegram user IDs");
-                    throw;
-                }
-                
-                // Ensure only one bot instance runs at a time using singleton lock
-                logger.LogInformation("Acquiring singleton lock to prevent multiple bot instances...");
-                using var singletonManager = new SingletonBotManager(host.Services.GetRequiredService<ILogger<SingletonBotManager>>());
-                
-                // First try immediate lock
-                var lockAcquired = await singletonManager.TryAcquireLockAsync();
-                if (!lockAcquired)
-                {
-                    logger.LogWarning("Another bot instance detected. Waiting for it to stop...");
-                    // Wait up to 30 seconds for other instance to stop
-                    lockAcquired = await singletonManager.WaitAndAcquireLockAsync(TimeSpan.FromSeconds(30));
-                    
-                    if (!lockAcquired)
+                    try
                     {
-                        logger.LogError("Could not acquire singleton lock. Another instance may be running or there's a stale lock file.");
-                        logger.LogInformation("You can manually delete the lock file if you're sure no other instance is running.");
-                        return; // Exit gracefully instead of throwing
+                        await InitializeBotAsync(host.Services, logger);
                     }
-                }
+                    catch (Exception ex)
+                    {
+                        logger.LogCritical(ex, "Critical error during bot initialization");
+                        Environment.Exit(1);
+                    }
+                });
                 
-                logger.LogInformation("✅ Singleton lock acquired. This is the only bot instance running.");
+                // Wait for either the host to stop or bot init to complete
+                await Task.WhenAny(hostTask, botInitTask);
                 
-                // Force resolve any bot conflicts before starting
-                logger.LogInformation("Checking for bot conflicts and resolving them...");
-                var httpClient = host.Services.GetRequiredService<HttpClient>();
-                var conflictResolver = new TelegramBotConflictResolver(
-                    config.BotToken, 
-                    host.Services.GetRequiredService<ILogger<TelegramBotConflictResolver>>(),
-                    httpClient);
-                
-                // Get diagnostics first
-                var diagnostics = await conflictResolver.GetConflictDiagnosticsAsync();
-                logger.LogInformation("Bot conflict diagnostics:\n{Diagnostics}", diagnostics);
-                
-                // Force resolve conflicts
-                var conflictResolved = await conflictResolver.ForceResolveConflictsAsync();
-                if (!conflictResolved)
+                // If bot init completed, wait for host
+                if (botInitTask.IsCompleted)
                 {
-                    logger.LogWarning("Could not fully resolve bot conflicts, but continuing anyway...");
+                    await hostTask;
                 }
-                
-                // Retrieve Bot instance and start it
-                var bot = host.Services.GetRequiredService<Bot>();
-                logger.LogInformation("Bot service resolved successfully");
-                
-                // Check if webhook mode is requested (useful to avoid polling conflicts)
-                var webhookMode = Environment.GetEnvironmentVariable("WEBHOOK_MODE")?.ToLowerInvariant() == "true";
-                var webhookUrl = Environment.GetEnvironmentVariable("WEBHOOK_URL");
-                
-                if (webhookMode && !string.IsNullOrEmpty(webhookUrl))
-                {
-                    logger.LogInformation("Starting bot in webhook mode with URL: {WebhookUrl}", webhookUrl);
-                    await bot.StartWithWebhookAsync(webhookUrl);
-                    logger.LogInformation("Bot webhook configured successfully");
-                }
-                else
-                {
-                    logger.LogInformation("Starting bot in polling mode");
-                    await bot.StartAsync();
-                    logger.LogInformation("Bot started successfully");
-                }
-                
-                // Start periodic health check
-                var healthCheckTimer = new Timer(
-                    _ => PerformHealthCheck(host.Services), 
-                    null, 
-                    TimeSpan.Zero, 
-                    TimeSpan.FromMinutes(5));
-                
-                await host.RunAsync();
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Bot token") || ex.Message.Contains("Azure Function"))
             {
@@ -175,6 +108,100 @@ namespace CryptoReportBot
             {
                 logger.LogInformation("Application shutting down at: {Time}", DateTimeOffset.UtcNow);
             }
+        }
+
+        private static async Task InitializeBotAsync(IServiceProvider services, ILogger<Program> logger)
+        {
+            // Validate configuration early
+            logger.LogInformation("Validating configuration...");
+            var config = services.GetRequiredService<IConfigurationManager>();
+            
+            // Trigger lazy loading and validation by accessing properties
+            try
+            {
+                var botToken = config.BotToken;
+                var azureUrl = config.AzureFunctionUrl;
+                logger.LogInformation("Configuration validation successful");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogCritical("Configuration validation failed: {Error}", ex.Message);
+                logger.LogError("Please ensure the following environment variables are set:");
+                logger.LogError("- alerts_bot_token: Your Telegram bot token");
+                logger.LogError("- azure_function_url: URL of your Azure Function");
+                logger.LogError("- azure_function_key: (Optional) Azure Function access key");
+                logger.LogError("- allowed_user_ids: (Optional) Comma-separated list of allowed Telegram user IDs");
+                throw;
+            }
+            
+            // Ensure only one bot instance runs at a time using singleton lock
+            logger.LogInformation("Acquiring singleton lock to prevent multiple bot instances...");
+            using var singletonManager = new SingletonBotManager(services.GetRequiredService<ILogger<SingletonBotManager>>());
+            
+            // First try immediate lock
+            var lockAcquired = await singletonManager.TryAcquireLockAsync();
+            if (!lockAcquired)
+            {
+                logger.LogWarning("Another bot instance detected. Waiting for it to stop...");
+                // Wait up to 30 seconds for other instance to stop
+                lockAcquired = await singletonManager.WaitAndAcquireLockAsync(TimeSpan.FromSeconds(30));
+                
+                if (!lockAcquired)
+                {
+                    logger.LogError("Could not acquire singleton lock. Another instance may be running or there's a stale lock file.");
+                    logger.LogInformation("You can manually delete the lock file if you're sure no other instance is running.");
+                    return; // Exit gracefully instead of throwing
+                }
+            }
+            
+            logger.LogInformation("✅ Singleton lock acquired. This is the only bot instance running.");
+            
+            // Force resolve any bot conflicts before starting
+            logger.LogInformation("Checking for bot conflicts and resolving them...");
+            var httpClient = services.GetRequiredService<HttpClient>();
+            var conflictResolver = new TelegramBotConflictResolver(
+                config.BotToken, 
+                services.GetRequiredService<ILogger<TelegramBotConflictResolver>>(),
+                httpClient);
+            
+            // Get diagnostics first
+            var diagnostics = await conflictResolver.GetConflictDiagnosticsAsync();
+            logger.LogInformation("Bot conflict diagnostics:\n{Diagnostics}", diagnostics);
+            
+            // Force resolve conflicts
+            var conflictResolved = await conflictResolver.ForceResolveConflictsAsync();
+            if (!conflictResolved)
+            {
+                logger.LogWarning("Could not fully resolve bot conflicts, but continuing anyway...");
+            }
+            
+            // Retrieve Bot instance and start it
+            var bot = services.GetRequiredService<Bot>();
+            logger.LogInformation("Bot service resolved successfully");
+            
+            // Check if webhook mode is requested (useful to avoid polling conflicts)
+            var webhookMode = Environment.GetEnvironmentVariable("WEBHOOK_MODE")?.ToLowerInvariant() == "true";
+            var webhookUrl = Environment.GetEnvironmentVariable("WEBHOOK_URL");
+            
+            if (webhookMode && !string.IsNullOrEmpty(webhookUrl))
+            {
+                logger.LogInformation("Starting bot in webhook mode with URL: {WebhookUrl}", webhookUrl);
+                await bot.StartWithWebhookAsync(webhookUrl);
+                logger.LogInformation("Bot webhook configured successfully");
+            }
+            else
+            {
+                logger.LogInformation("Starting bot in polling mode");
+                await bot.StartAsync();
+                logger.LogInformation("Bot started successfully");
+            }
+            
+            // Start periodic health check
+            var healthCheckTimer = new Timer(
+                _ => PerformHealthCheck(services), 
+                null, 
+                TimeSpan.Zero, 
+                TimeSpan.FromMinutes(5));
         }
 
         private static void PerformHealthCheck(IServiceProvider services)
