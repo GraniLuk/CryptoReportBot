@@ -44,6 +44,9 @@ jobs:
         
       - name: Publish application  
         run: dotnet publish src/CryptoReportBot/CryptoReportBot.csproj --configuration Release --output ./publish --no-build
+        
+      - name: List published files
+        run: ls -la ./publish
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
@@ -57,6 +60,12 @@ jobs:
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
             --linux-fx-version "DOTNETCORE|9.0"
+            
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            --name CryptoReportBot \
+            --resource-group alertsfunctiongrani
           
       - name: Configure Web App Settings
         run: |

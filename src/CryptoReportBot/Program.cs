@@ -235,7 +235,19 @@ namespace CryptoReportBot
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseUrls("http://localhost:8080");
+                    // For Azure Web Apps, bind to all interfaces on port 80
+                    // Use ASPNETCORE_URLS environment variable if set, otherwise default to port 80
+                    var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+                    if (!string.IsNullOrEmpty(urls))
+                    {
+                        webBuilder.UseUrls(urls);
+                    }
+                    else
+                    {
+                        // Default to port 80 for Azure Web Apps
+                        webBuilder.UseUrls("http://+:80");
+                    }
+                    
                     webBuilder.Configure(app =>
                     {
                         // Add health check endpoint
