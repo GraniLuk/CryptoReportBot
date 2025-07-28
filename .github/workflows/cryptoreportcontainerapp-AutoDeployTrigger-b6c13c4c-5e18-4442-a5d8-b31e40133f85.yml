@@ -51,6 +51,13 @@ jobs:
           app-name: CryptoReportBot
           package: ./publish
           
+      - name: Configure Web App for .NET 9 Runtime
+        run: |
+          az webapp config set \
+            --name CryptoReportBot \
+            --resource-group alertsfunctiongrani \
+            --linux-fx-version "DOTNETCORE|9.0"
+          
       - name: Configure Web App Settings
         run: |
           az webapp config appsettings set \
