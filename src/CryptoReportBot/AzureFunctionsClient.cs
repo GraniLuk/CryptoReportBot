@@ -429,7 +429,7 @@ namespace CryptoReportBot
                     }
 
                     var url = _config.AzureFunctionUrl
-                        .Replace("insert_new_alert_grani", "create_indicator_alert")
+                        .Replace("insert_new_alert_grani", "indicator-alerts")
                         + $"?code={_config.AzureFunctionKey}";
                     
                     var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
