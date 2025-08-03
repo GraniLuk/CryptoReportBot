@@ -23,7 +23,7 @@ namespace CryptoReportBot
 
         public async Task HandleAsync(ITelegramBotClient botClient, Message message)
         {
-            _logger.LogInformation("User {UserId} requested to list alerts", message.From.Id);
+            _logger.LogInformation("User {UserId} requested to list alerts", message.From?.Id ?? 0);
             
             // Check if Azure Functions client is configured
             if (!_azureFunctionsClient.IsConfigured)
@@ -51,28 +51,29 @@ namespace CryptoReportBot
             }
             
             // Build message with alerts information
-            var messageBuilder = new StringBuilder("📊 Current Price Alerts:\n\n");
+            var messageBuilder = new StringBuilder("📊 Current Alerts:\n\n");
             
             // Group alerts by type
-            var singleAlerts = alerts.Where(a => a.Type != "ratio").ToList();
-            var ratioAlerts = alerts.Where(a => a.Type == "ratio").ToList();
+            var singleAlerts = alerts.Where(a => a.AlertType == "price" && a.Type == "single").ToList();
+            var ratioAlerts = alerts.Where(a => a.AlertType == "price" && a.Type == "ratio").ToList();
+            var indicatorAlerts = alerts.Where(a => a.AlertType == "indicator").ToList();
             
             // Add single symbol alerts
             if (singleAlerts.Any())
             {
-                messageBuilder.AppendLine("🎯 Single Symbol Alerts:");
+                messageBuilder.AppendLine("🎯 Single Symbol Price Alerts:");
                 foreach (var alert in singleAlerts)
                 {
-                    messageBuilder.AppendLine($"Symbol: ${alert.Symbol}");
+                    messageBuilder.AppendLine($"Symbol: ${alert.Symbol ?? "Unknown"}");
                     messageBuilder.AppendLine($"Price: ${alert.Price}");
                     
-                    // Escape < and > operators for HTML
-                    string operator_text = alert.Operator
+                    // Escape < and > operators for HTML, handle null operator
+                    string operator_text = (alert.Operator ?? "")
                         .Replace("<", "&lt;")
                         .Replace(">", "&gt;");
                         
                     messageBuilder.AppendLine($"Operator: {operator_text}");
-                    messageBuilder.AppendLine($"Description: {alert.Description}");
+                    messageBuilder.AppendLine($"Description: {alert.Description ?? "No description"}");
                     messageBuilder.AppendLine("---------------");
                 }
             }
@@ -80,19 +81,45 @@ namespace CryptoReportBot
             // Add ratio alerts
             if (ratioAlerts.Any())
             {
-                messageBuilder.AppendLine("\n📈 Ratio Alerts:");
+                messageBuilder.AppendLine("\n📈 Ratio Price Alerts:");
                 foreach (var alert in ratioAlerts)
                 {
-                    messageBuilder.AppendLine($"Pair: {alert.Symbol1}/{alert.Symbol2}");
+                    // Handle potential null values for Symbol1 and Symbol2
+                    string symbol1 = alert.Symbol1 ?? "Unknown";
+                    string symbol2 = alert.Symbol2 ?? "Unknown";
+                    messageBuilder.AppendLine($"Pair: {symbol1}/{symbol2}");
                     messageBuilder.AppendLine($"Ratio: {alert.Price}");
                     
-                    // Escape < and > operators for HTML
-                    string operator_text = alert.Operator
+                    // Escape < and > operators for HTML, handle null operator
+                    string operator_text = (alert.Operator ?? "")
                         .Replace("<", "&lt;")
                         .Replace(">", "&gt;");
                         
                     messageBuilder.AppendLine($"Operator: {operator_text}");
-                    messageBuilder.AppendLine($"Description: {alert.Description}");
+                    messageBuilder.AppendLine($"Description: {alert.Description ?? "No description"}");
+                    messageBuilder.AppendLine("---------------");
+                }
+            }
+            
+            // Add indicator alerts
+            if (indicatorAlerts.Any())
+            {
+                messageBuilder.AppendLine("\n📊 RSI Indicator Alerts:");
+                foreach (var alert in indicatorAlerts)
+                {
+                    messageBuilder.AppendLine($"Symbol: {alert.Symbol ?? "Unknown"}");
+                    messageBuilder.AppendLine($"Indicator: {(alert.IndicatorType ?? "").ToUpper()}");
+                    messageBuilder.AppendLine($"Condition: {alert.Condition ?? "Unknown"}");
+                    
+                    // Display config information if available
+                    if (alert.Config != null)
+                    {
+                        messageBuilder.AppendLine($"Config: RSI({alert.Config.Period}) - OB:{alert.Config.OverboughtLevel} OS:{alert.Config.OversoldLevel}");
+                        messageBuilder.AppendLine($"Timeframe: {alert.Config.Timeframe ?? "Unknown"}");
+                    }
+                    
+                    messageBuilder.AppendLine($"Description: {alert.Description ?? "No description"}");
+                    messageBuilder.AppendLine($"Enabled: {(alert.Enabled ? "Yes" : "No")}");
                     messageBuilder.AppendLine("---------------");
                 }
             }
