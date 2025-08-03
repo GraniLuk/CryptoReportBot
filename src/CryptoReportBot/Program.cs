@@ -347,6 +347,7 @@ namespace CryptoReportBot
                     // Register conversation handlers
                     services.AddSingleton<CreateAlertHandler>();
                     services.AddSingleton<CreateGmtAlertHandler>();
+                    services.AddSingleton<CreateIndicatorAlertHandler>();
                     services.AddSingleton<RemoveAlertHandler>();
                     services.AddSingleton<ListAlertsHandler>();
                     

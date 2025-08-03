@@ -24,6 +24,7 @@ namespace CryptoReportBot
         // Conversation handlers
         private readonly CreateAlertHandler _createAlertHandler;
         private readonly CreateGmtAlertHandler _createGmtAlertHandler;
+        private readonly CreateIndicatorAlertHandler _createIndicatorAlertHandler;
         private readonly RemoveAlertHandler _removeAlertHandler;
         private readonly ListAlertsHandler _listAlertsHandler;
         
@@ -44,6 +45,7 @@ namespace CryptoReportBot
             ILogger<Bot> logger,
             CreateAlertHandler createAlertHandler,
             CreateGmtAlertHandler createGmtAlertHandler,
+            CreateIndicatorAlertHandler createIndicatorAlertHandler,
             RemoveAlertHandler removeAlertHandler,
             ListAlertsHandler listAlertsHandler)
         {
@@ -51,6 +53,7 @@ namespace CryptoReportBot
             _logger = logger;
             _createAlertHandler = createAlertHandler;
             _createGmtAlertHandler = createGmtAlertHandler;
+            _createIndicatorAlertHandler = createIndicatorAlertHandler;
             _removeAlertHandler = removeAlertHandler;
             _listAlertsHandler = listAlertsHandler;
             
@@ -302,6 +305,11 @@ namespace CryptoReportBot
                             await _createGmtAlertHandler.StartAsync(_botClient, message, userState);
                             break;
                             
+                        case "/indicator_alert":
+                        case "/indicatoralert":
+                            await _createIndicatorAlertHandler.StartAsync(_botClient, message, userState);
+                            break;
+                            
                         case "/getalerts":
                         case "/listalerts":
                             await _listAlertsHandler.HandleAsync(_botClient, message);
@@ -333,7 +341,7 @@ namespace CryptoReportBot
                         default:
                             await _botClient.SendTextMessageAsync(
                                 chatId: message.Chat.Id,
-                                text: "Unknown command. Available commands: /createalert, /creategmtalert, /getalerts, /removealert, /status"
+                                text: "Unknown command. Available commands: /createalert, /creategmtalert, /indicator_alert, /getalerts, /removealert, /status"
                             );
                             break;
                     }
@@ -356,6 +364,31 @@ namespace CryptoReportBot
                             
                         case ConversationState.AwaitingDescription:
                             await _createAlertHandler.HandleDescriptionAsync(_botClient, message, userState);
+                            break;
+                            
+                        // Indicator alert conversation states
+                        case ConversationState.AwaitingIndicatorSymbol:
+                            await _createIndicatorAlertHandler.HandleSymbolAsync(_botClient, message, userState);
+                            break;
+                            
+                        case ConversationState.AwaitingIndicatorPeriod:
+                            await _createIndicatorAlertHandler.HandlePeriodAsync(_botClient, message, userState);
+                            break;
+                            
+                        case ConversationState.AwaitingIndicatorOverbought:
+                            await _createIndicatorAlertHandler.HandleOverboughtAsync(_botClient, message, userState);
+                            break;
+                            
+                        case ConversationState.AwaitingIndicatorOversold:
+                            await _createIndicatorAlertHandler.HandleOversoldAsync(_botClient, message, userState);
+                            break;
+                            
+                        case ConversationState.AwaitingIndicatorTimeframe:
+                            await _createIndicatorAlertHandler.HandleTimeframeAsync(_botClient, message, userState);
+                            break;
+                            
+                        case ConversationState.AwaitingIndicatorDescription:
+                            await _createIndicatorAlertHandler.HandleDescriptionAsync(_botClient, message, userState);
                             break;
                             
                         default:

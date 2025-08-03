@@ -18,6 +18,7 @@ namespace CryptoReportBot
         Task<bool> SendAlertRequestAsync(Dictionary<string, object> data);
         Task<AlertsResponse> GetAllAlertsAsync();
         Task<bool> DeleteAlertAsync(string alertId);
+        Task<CreateIndicatorAlertResponse> CreateIndicatorAlertAsync(string jsonPayload);
         bool IsConfigured { get; }
         Task<bool> TestConnectionAsync();
     }
@@ -226,7 +227,12 @@ namespace CryptoReportBot
                         // Reset consecutive failures counter on success
                         Interlocked.Exchange(ref _consecutiveFailures, 0);
                         
-                        return JsonSerializer.Deserialize<AlertsResponse>(content);
+                        var alertsResponse = JsonSerializer.Deserialize<AlertsResponse>(content);
+                        return alertsResponse ?? new AlertsResponse 
+                        { 
+                            Alerts = new List<Alert>(), 
+                            Message = "Empty response from server" 
+                        };
                     }
                     else
                     {
@@ -401,6 +407,139 @@ namespace CryptoReportBot
             }
             
             return false;
+        }
+
+        public async Task<CreateIndicatorAlertResponse> CreateIndicatorAlertAsync(string jsonPayload)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var retryAttempt = 0;
+            
+            while (retryAttempt <= _maxRetryAttempts)
+            {
+                try
+                {
+                    if (!IsConfigured)
+                    {
+                        _logger.LogWarning("Cannot create indicator alert: Azure Function Key is not configured");
+                        return new CreateIndicatorAlertResponse 
+                        { 
+                            Success = false, 
+                            ErrorMessage = "Azure Function Key is not configured" 
+                        };
+                    }
+
+                    var url = _config.AzureFunctionUrl
+                        .Replace("insert_new_alert_grani", "create_indicator_alert")
+                        + $"?code={_config.AzureFunctionKey}";
+                    
+                    var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+                    _logger.LogInformation("Creating indicator alert with payload: {Payload}", jsonPayload);
+                    
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    var response = await _httpClient.PostAsync(url, content, cts.Token);
+                    var responseText = await response.Content.ReadAsStringAsync();
+                    
+                    _logger.LogInformation(
+                        "Create indicator alert response status: {Status}, Response text: {Text}, Request duration: {Duration}ms", 
+                        response.StatusCode, 
+                        responseText,
+                        stopwatch.ElapsedMilliseconds);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Reset consecutive failures counter on success
+                        Interlocked.Exchange(ref _consecutiveFailures, 0);
+                        
+                        var responseObject = JsonSerializer.Deserialize<CreateIndicatorAlertResponse>(responseText);
+                        return responseObject ?? new CreateIndicatorAlertResponse 
+                        { 
+                            Success = true, 
+                            Message = "Indicator alert created successfully" 
+                        };
+                    }
+                    else
+                    {
+                        _logger.LogWarning("HTTP error response: {StatusCode}, Content: {Content}", 
+                            response.StatusCode, responseText);
+                        
+                        // Try to parse error response
+                        try
+                        {
+                            var errorResponse = JsonSerializer.Deserialize<CreateIndicatorAlertResponse>(responseText);
+                            if (errorResponse != null)
+                            {
+                                return errorResponse;
+                            }
+                        }
+                        catch
+                        {
+                            // If we can't parse the error response, create a generic one
+                        }
+                        
+                        // For certain status codes, we won't retry
+                        if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
+                        {
+                            return new CreateIndicatorAlertResponse 
+                            { 
+                                Success = false, 
+                                ErrorMessage = $"HTTP {response.StatusCode}: {responseText}" 
+                            };
+                        }
+                        
+                        // For server errors, we'll retry
+                        retryAttempt++;
+                    }
+                }
+                catch (OperationCanceledException ex)
+                {
+                    _logger.LogWarning(ex, "Request timed out after {Duration}ms on attempt {Attempt}", 
+                        stopwatch.ElapsedMilliseconds, retryAttempt + 1);
+                    retryAttempt++;
+                }
+                catch (HttpRequestException ex)
+                {
+                    // Log details about the network error
+                    string errorDetails = GetNetworkErrorDetails(ex);
+                    _logger.LogError(ex, "Network error creating indicator alert on attempt {Attempt}: {Details}", 
+                        retryAttempt + 1, errorDetails);
+                    
+                    retryAttempt++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error creating indicator alert on attempt {Attempt}", retryAttempt + 1);
+                    Interlocked.Increment(ref _consecutiveFailures);
+                    retryAttempt++;
+                }
+                
+                if (retryAttempt <= _maxRetryAttempts)
+                {
+                    // Calculate exponential backoff delay with jitter
+                    var backoffDelay = CalculateBackoffDelay(retryAttempt);
+                    _logger.LogInformation("Retrying in {Delay}ms (attempt {Attempt} of {MaxAttempts})", 
+                        backoffDelay.TotalMilliseconds, retryAttempt, _maxRetryAttempts);
+                    await Task.Delay(backoffDelay);
+                }
+            }
+            
+            // If we've reached here, all retries failed
+            _logger.LogError("All {MaxRetries} retry attempts failed when creating indicator alert", _maxRetryAttempts);
+            Interlocked.Increment(ref _consecutiveFailures);
+            
+            // Log severe warning if too many consecutive failures
+            if (_consecutiveFailures > 5)
+            {
+                _logger.LogCritical(
+                    "Detected {Count} consecutive failures in API communication. Bot stability may be compromised.",
+                    _consecutiveFailures);
+            }
+            
+            return new CreateIndicatorAlertResponse 
+            { 
+                Success = false, 
+                ErrorMessage = "Failed to create indicator alert after multiple retries" 
+            };
         }
 
         // Helper method to extract detailed network error information

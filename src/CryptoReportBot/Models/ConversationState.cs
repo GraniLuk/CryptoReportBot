@@ -6,19 +6,33 @@ namespace CryptoReportBot.Models
         AwaitingSymbol,
         AwaitingOperator,
         AwaitingPrice,
-        AwaitingDescription
+        AwaitingDescription,
+        // Indicator alert states
+        AwaitingIndicatorSymbol,
+        AwaitingIndicatorPeriod,
+        AwaitingIndicatorOverbought,
+        AwaitingIndicatorOversold,
+        AwaitingIndicatorTimeframe,
+        AwaitingIndicatorDescription
     }
 
     public class UserConversationState
     {
         public ConversationState ConversationState { get; set; } = ConversationState.None;
-        public string Type { get; set; }
-        public string Symbol { get; set; }
-        public string Symbol1 { get; set; }
-        public string Symbol2 { get; set; }
-        public string Operator { get; set; }
-        public string Price { get; set; }
-        public string Description { get; set; }
+        public string? Type { get; set; }
+        public string? Symbol { get; set; }
+        public string? Symbol1 { get; set; }
+        public string? Symbol2 { get; set; }
+        public string? Operator { get; set; }
+        public string? Price { get; set; }
+        public string? Description { get; set; }
+        
+        // Indicator alert properties
+        public string? IndicatorType { get; set; }
+        public int IndicatorPeriod { get; set; }
+        public double IndicatorOverbought { get; set; }
+        public double IndicatorOversold { get; set; }
+        public string? IndicatorTimeframe { get; set; }
 
         public void ResetState()
         {
@@ -30,6 +44,11 @@ namespace CryptoReportBot.Models
             Operator = null;
             Price = null;
             Description = null;
+            IndicatorType = null;
+            IndicatorPeriod = 0;
+            IndicatorOverbought = 0;
+            IndicatorOversold = 0;
+            IndicatorTimeframe = null;
         }
     }
 }
