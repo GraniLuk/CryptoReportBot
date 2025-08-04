@@ -54,6 +54,55 @@ namespace CryptoReportBot.Models
         
         [JsonPropertyName("triggers")]
         public List<object>? Triggers { get; set; }
+        
+        [JsonPropertyName("current_value")]
+        public CurrentValue? CurrentValue { get; set; }
+    }
+    
+    public class CurrentValue
+    {
+        [JsonPropertyName("current_price")]
+        public double? CurrentPrice { get; set; }
+        
+        [JsonPropertyName("price_range")]
+        public PriceRange? PriceRange { get; set; }
+        
+        [JsonPropertyName("last_updated")]
+        public string? LastUpdated { get; set; }
+        
+        [JsonPropertyName("source")]
+        public string? Source { get; set; }
+        
+        // For indicator alerts
+        [JsonPropertyName("current_rsi")]
+        public double? CurrentRsi { get; set; }
+        
+        [JsonPropertyName("rsi_status")]
+        public RsiStatus? RsiStatus { get; set; }
+        
+        [JsonPropertyName("config")]
+        public IndicatorConfig? Config { get; set; }
+    }
+    
+    public class PriceRange
+    {
+        [JsonPropertyName("low")]
+        public double Low { get; set; }
+        
+        [JsonPropertyName("high")]
+        public double High { get; set; }
+    }
+    
+    public class RsiStatus
+    {
+        [JsonPropertyName("is_overbought")]
+        public bool IsOverbought { get; set; }
+        
+        [JsonPropertyName("is_oversold")]
+        public bool IsOversold { get; set; }
+        
+        [JsonPropertyName("trend")]
+        public string? Trend { get; set; }
     }
     
     public class IndicatorConfig

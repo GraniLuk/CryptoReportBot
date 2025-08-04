@@ -64,8 +64,19 @@ namespace CryptoReportBot
                 messageBuilder.AppendLine("🎯 Single Symbol Price Alerts:");
                 foreach (var alert in singleAlerts)
                 {
-                    messageBuilder.AppendLine($"Symbol: ${alert.Symbol ?? "Unknown"}");
-                    messageBuilder.AppendLine($"Price: ${alert.Price}");
+                    messageBuilder.AppendLine($"Symbol: {alert.Symbol ?? "Unknown"}");
+                    messageBuilder.AppendLine($"Target Price: ${alert.Price}");
+                    
+                    // Add current value information
+                    if (alert.CurrentValue?.CurrentPrice != null)
+                    {
+                        messageBuilder.AppendLine($"Current Price: ${alert.CurrentValue.CurrentPrice:F4}");
+                        
+                        if (alert.CurrentValue.PriceRange != null)
+                        {
+                            messageBuilder.AppendLine($"24h Range: ${alert.CurrentValue.PriceRange.Low:F4}-${alert.CurrentValue.PriceRange.High:F4}");
+                        }
+                    }
                     
                     // Escape < and > operators for HTML, handle null operator
                     string operator_text = (alert.Operator ?? "")
@@ -88,7 +99,18 @@ namespace CryptoReportBot
                     string symbol1 = alert.Symbol1 ?? "Unknown";
                     string symbol2 = alert.Symbol2 ?? "Unknown";
                     messageBuilder.AppendLine($"Pair: {symbol1}/{symbol2}");
-                    messageBuilder.AppendLine($"Ratio: {alert.Price}");
+                    messageBuilder.AppendLine($"Target Ratio: {alert.Price}");
+                    
+                    // Add current value information for ratio alerts
+                    if (alert.CurrentValue?.CurrentPrice != null)
+                    {
+                        messageBuilder.AppendLine($"Current Ratio: {alert.CurrentValue.CurrentPrice:F4}");
+                        
+                        if (alert.CurrentValue.PriceRange != null)
+                        {
+                            messageBuilder.AppendLine($"24h Range: {alert.CurrentValue.PriceRange.Low:F4}-{alert.CurrentValue.PriceRange.High:F4}");
+                        }
+                    }
                     
                     // Escape < and > operators for HTML, handle null operator
                     string operator_text = (alert.Operator ?? "")
@@ -110,6 +132,30 @@ namespace CryptoReportBot
                     messageBuilder.AppendLine($"Symbol: {alert.Symbol ?? "Unknown"}");
                     messageBuilder.AppendLine($"Indicator: {(alert.IndicatorType ?? "").ToUpper()}");
                     messageBuilder.AppendLine($"Condition: {alert.Condition ?? "Unknown"}");
+                    
+                    // Add current RSI and price information
+                    if (alert.CurrentValue != null)
+                    {
+                        if (alert.CurrentValue.CurrentRsi != null)
+                        {
+                            messageBuilder.AppendLine($"Current RSI: {alert.CurrentValue.CurrentRsi:F2}");
+                            
+                            // Add RSI status with emoji
+                            if (alert.CurrentValue.RsiStatus != null)
+                            {
+                                string statusEmoji = alert.CurrentValue.RsiStatus.IsOverbought ? "🔴" :
+                                                   alert.CurrentValue.RsiStatus.IsOversold ? "🟢" : "⚪";
+                                string statusText = alert.CurrentValue.RsiStatus.IsOverbought ? "Overbought" :
+                                                  alert.CurrentValue.RsiStatus.IsOversold ? "Oversold" : "Neutral";
+                                messageBuilder.AppendLine($"Status: {statusEmoji} {statusText}");
+                            }
+                        }
+                        
+                        if (alert.CurrentValue.CurrentPrice != null)
+                        {
+                            messageBuilder.AppendLine($"Current Price: ${alert.CurrentValue.CurrentPrice:F4}");
+                        }
+                    }
                     
                     // Display config information if available
                     if (alert.Config != null)
