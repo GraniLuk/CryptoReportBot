@@ -11,6 +11,8 @@ namespace CryptoReportBot
         string AzureFunctionUrl { get; }
         string? AzureFunctionKey { get; } // Made nullable to handle missing configuration
         string? AllowedUserIds { get; }
+        string CryptoReportsApiUrl { get; }
+        string? CryptoReportsApiKey { get; }
     }
 
     public class ConfigurationManager : IConfigurationManager
@@ -20,6 +22,8 @@ namespace CryptoReportBot
         private string? _azureFunctionUrl = null;
         private string? _azureFunctionKey = null;
         private string? _allowedUserIds = null;
+        private string? _cryptoReportsApiUrl = null;
+        private string? _cryptoReportsApiKey = null;
         private bool _secretsLoaded = false;
         private readonly object _lockObject = new object();
 
@@ -65,6 +69,24 @@ namespace CryptoReportBot
             }
         }
 
+        public string CryptoReportsApiUrl 
+        { 
+            get 
+            {
+                EnsureSecretsLoaded();
+                return _cryptoReportsApiUrl ?? throw new InvalidOperationException("Crypto Reports API URL not configured");
+            }
+        }
+
+        public string? CryptoReportsApiKey 
+        { 
+            get 
+            {
+                EnsureSecretsLoaded();
+                return _cryptoReportsApiKey;
+            }
+        }
+
         private void EnsureSecretsLoaded()
         {
             if (!_secretsLoaded)
@@ -90,12 +112,16 @@ namespace CryptoReportBot
                 _azureFunctionUrl = Environment.GetEnvironmentVariable("azure_function_url");
                 _azureFunctionKey = Environment.GetEnvironmentVariable("azure_function_key");
                 _allowedUserIds = Environment.GetEnvironmentVariable("allowed_user_ids");
+                _cryptoReportsApiUrl = Environment.GetEnvironmentVariable("crypto_reports_api_url");
+                _cryptoReportsApiKey = Environment.GetEnvironmentVariable("crypto_reports_api_key");
                 
-                _logger.LogInformation("Environment variables loaded - Bot token exists: {HasToken}, URL exists: {HasUrl}, Key exists: {HasKey}, Allowed users exists: {HasAllowedUsers}",
+                _logger.LogInformation("Environment variables loaded - Bot token exists: {HasToken}, URL exists: {HasUrl}, Key exists: {HasKey}, Allowed users exists: {HasAllowedUsers}, Crypto Reports API exists: {HasCryptoReportsApi}, Crypto Reports API Key exists: {HasCryptoReportsApiKey}",
                     !string.IsNullOrEmpty(_botToken),
                     !string.IsNullOrEmpty(_azureFunctionUrl),
                     !string.IsNullOrEmpty(_azureFunctionKey),
-                    !string.IsNullOrEmpty(_allowedUserIds));
+                    !string.IsNullOrEmpty(_allowedUserIds),
+                    !string.IsNullOrEmpty(_cryptoReportsApiUrl),
+                    !string.IsNullOrEmpty(_cryptoReportsApiKey));
                 
                 // Validate that required secrets were loaded
                 ValidateRequiredSecrets();
@@ -117,6 +143,9 @@ namespace CryptoReportBot
             if (string.IsNullOrEmpty(_azureFunctionUrl))
                 missingSecrets.Add("Azure Function URL (azure_function_url)");
             
+            if (string.IsNullOrEmpty(_cryptoReportsApiUrl))
+                missingSecrets.Add("Crypto Reports API URL (crypto_reports_api_url)");
+            
             if (missingSecrets.Any())
             {
                 var message = $"Missing required configuration: {string.Join(", ", missingSecrets)}. " +
@@ -131,9 +160,16 @@ namespace CryptoReportBot
                 _logger.LogWarning("Azure Function Key is not set. Some functionality may be limited.");
             }
             
-            _logger.LogInformation("Configuration validation complete. Bot Token length: {TokenLength}, Azure Function Key present: {HasFunctionKey}", 
+            // Crypto Reports API key is optional but we'll log a warning if it's missing
+            if (string.IsNullOrEmpty(_cryptoReportsApiKey))
+            {
+                _logger.LogWarning("Crypto Reports API Key is not set. Some functionality may be limited.");
+            }
+            
+            _logger.LogInformation("Configuration validation complete. Bot Token length: {TokenLength}, Azure Function Key present: {HasFunctionKey}, Crypto Reports API Key present: {HasCryptoReportsApiKey}", 
                 _botToken?.Length ?? 0,
-                !string.IsNullOrEmpty(_azureFunctionKey));
+                !string.IsNullOrEmpty(_azureFunctionKey),
+                !string.IsNullOrEmpty(_cryptoReportsApiKey));
         }
     }
 }

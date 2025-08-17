@@ -558,8 +558,8 @@ namespace CryptoReportBot
                         return false;
                     }
 
-                    // Use the specific URL for the crypto situation API
-                    var url = $"https://bitcoinchecker.azurewebsites.net/api/crypto-situation?symbol={symbol}&save_to_onedrive=true&send_to_telegram=true&code={_config.AzureFunctionKey}";
+                    // Use the configured URL for the crypto situation API
+                    var url = $"{_config.CryptoReportsApiUrl}/api/crypto-situation?symbol={symbol}&save_to_onedrive=true&send_to_telegram=true&code={_config.CryptoReportsApiKey}";
 
                     _logger.LogInformation("Requesting situation report for symbol: {Symbol}", symbol);
                     

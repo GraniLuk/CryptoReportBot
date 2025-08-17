@@ -13,6 +13,17 @@ on:
   # Allow manual trigger 
   workflow_dispatch:      
 
+# Required GitHub Secrets:
+# - CRYPTOREPORTCONTAINERAPP_AZURE_CLIENT_ID: Azure service principal client ID
+# - CRYPTOREPORTCONTAINERAPP_AZURE_TENANT_ID: Azure tenant ID
+# - CRYPTOREPORTCONTAINERAPP_AZURE_SUBSCRIPTION_ID: Azure subscription ID
+# - alerts_bot_token: Telegram bot token
+# - azure_function_key: Azure Function access key
+# - azure_function_url: Main Azure Function URL for alerts
+# - allowed_user_ids: Comma-separated list of allowed Telegram user IDs
+# - CryptoReportsApiUrl: URL for crypto reports API
+# - CryptoReportsApiKey: API key for crypto reports API      
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -77,4 +88,6 @@ jobs:
               alerts_bot_token="${{ secrets.alerts_bot_token }}" \
               azure_function_key="${{ secrets.azure_function_key }}" \
               azure_function_url="${{ secrets.azure_function_url }}" \
-              allowed_user_ids="${{ secrets.allowed_user_ids }}"
+              allowed_user_ids="${{ secrets.allowed_user_ids }}" \
+              crypto_reports_api_url="${{ secrets.CryptoReportsApiUrl }}" \
+              crypto_reports_api_key="${{ secrets.CryptoReportsApiKey }}"
