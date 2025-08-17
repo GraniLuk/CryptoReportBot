@@ -79,6 +79,13 @@ jobs:
             --resource-group alertsfunctiongrani
           
       - name: Configure Web App Settings
+        env:
+          ALERTS_BOT_TOKEN: ${{ secrets.alerts_bot_token }}
+          AZURE_FUNCTION_KEY: ${{ secrets.azure_function_key }}
+          AZURE_FUNCTION_URL: ${{ secrets.azure_function_url }}
+          ALLOWED_USER_IDS: ${{ secrets.allowed_user_ids }}
+          CRYPTO_REPORTS_API_URL: ${{ secrets.CryptoReportsApiUrl }}
+          CRYPTO_REPORTS_API_KEY: ${{ secrets.CryptoReportsApiKey }}
         run: |
           az webapp config appsettings set \
             --name CryptoReportBot \
@@ -88,29 +95,29 @@ jobs:
           az webapp config appsettings set \
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
-            --settings alerts_bot_token="${{ secrets.alerts_bot_token }}"
+            --settings alerts_bot_token="$ALERTS_BOT_TOKEN"
           
           az webapp config appsettings set \
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
-            --settings azure_function_key="${{ secrets.azure_function_key }}"
+            --settings azure_function_key="$AZURE_FUNCTION_KEY"
           
           az webapp config appsettings set \
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
-            --settings azure_function_url="${{ secrets.azure_function_url }}"
+            --settings azure_function_url="$AZURE_FUNCTION_URL"
           
           az webapp config appsettings set \
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
-            --settings allowed_user_ids="${{ secrets.allowed_user_ids }}"
+            --settings allowed_user_ids="$ALLOWED_USER_IDS"
           
           az webapp config appsettings set \
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
-            --settings crypto_reports_api_url="${{ secrets.CryptoReportsApiUrl }}"
+            --settings crypto_reports_api_url="$CRYPTO_REPORTS_API_URL"
           
           az webapp config appsettings set \
             --name CryptoReportBot \
             --resource-group alertsfunctiongrani \
-            --settings crypto_reports_api_key="${{ secrets.CryptoReportsApiKey }}"
+            --settings crypto_reports_api_key="$CRYPTO_REPORTS_API_KEY"
