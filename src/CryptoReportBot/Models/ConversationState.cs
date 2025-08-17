@@ -13,7 +13,9 @@ namespace CryptoReportBot.Models
         AwaitingIndicatorOverbought,
         AwaitingIndicatorOversold,
         AwaitingIndicatorTimeframe,
-        AwaitingIndicatorDescription
+        AwaitingIndicatorDescription,
+        // Situation report states
+        AwaitingSituationReportSymbol
     }
 
     public class UserConversationState

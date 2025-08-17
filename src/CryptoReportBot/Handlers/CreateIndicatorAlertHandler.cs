@@ -49,16 +49,13 @@ namespace CryptoReportBot
             // Create reply keyboard with common crypto symbols
             var keyboard = new ReplyKeyboardMarkup(new[]
             {
-                new[] { 
+                           new[] { 
                     new KeyboardButton("BTC"), 
                     new KeyboardButton("ETH"), 
                     new KeyboardButton("BNB"), 
-                    new KeyboardButton("DOT"), 
-                    new KeyboardButton("MATIC"), 
-                    new KeyboardButton("ATOM"), 
-                    new KeyboardButton("OSMO"), 
+                    new KeyboardButton("DOT"),  
                     new KeyboardButton("HBAR"),
-                    new KeyboardButton("FLOW") 
+                    new KeyboardButton("VIRTUAL") 
                 }
             })
             {

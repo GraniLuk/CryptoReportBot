@@ -19,6 +19,7 @@ namespace CryptoReportBot
         Task<AlertsResponse> GetAllAlertsAsync();
         Task<bool> DeleteAlertAsync(string alertId);
         Task<CreateIndicatorAlertResponse> CreateIndicatorAlertAsync(string jsonPayload);
+        Task<bool> RequestSituationReportAsync(string symbol);
         bool IsConfigured { get; }
         Task<bool> TestConnectionAsync();
     }
@@ -540,6 +541,104 @@ namespace CryptoReportBot
                 Success = false, 
                 ErrorMessage = "Failed to create indicator alert after multiple retries" 
             };
+        }
+
+        public async Task<bool> RequestSituationReportAsync(string symbol)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var retryAttempt = 0;
+            
+            while (retryAttempt <= _maxRetryAttempts)
+            {
+                try
+                {
+                    if (!IsConfigured)
+                    {
+                        _logger.LogWarning("Cannot request situation report: Azure Function Key is not configured");
+                        return false;
+                    }
+
+                    // Use the specific URL for the crypto situation API
+                    var url = $"https://bitcoinchecker.azurewebsites.net/api/crypto-situation?symbol={symbol}&save_to_onedrive=true&send_to_telegram=true&code={_config.AzureFunctionKey}";
+
+                    _logger.LogInformation("Requesting situation report for symbol: {Symbol}", symbol);
+                    
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    var response = await _httpClient.GetAsync(url, cts.Token);
+                    var responseText = await response.Content.ReadAsStringAsync();
+                    
+                    _logger.LogInformation(
+                        "Situation report response status: {Status}, Response text: {Text}, Request duration: {Duration}ms", 
+                        response.StatusCode, 
+                        responseText,
+                        stopwatch.ElapsedMilliseconds);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Reset consecutive failures counter on success
+                        Interlocked.Exchange(ref _consecutiveFailures, 0);
+                        return true;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("HTTP error response: {StatusCode}, Content: {Content}", 
+                            response.StatusCode, responseText);
+                            
+                        // For certain status codes, we won't retry
+                        if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
+                        {
+                            return false;
+                        }
+                        
+                        // For server errors, we'll retry
+                        retryAttempt++;
+                    }
+                }
+                catch (OperationCanceledException ex)
+                {
+                    _logger.LogWarning(ex, "Request timed out after {Duration}ms on attempt {Attempt}", 
+                        stopwatch.ElapsedMilliseconds, retryAttempt + 1);
+                    retryAttempt++;
+                }
+                catch (HttpRequestException ex)
+                {
+                    // Log details about the network error
+                    string errorDetails = GetNetworkErrorDetails(ex);
+                    _logger.LogError(ex, "Network error requesting situation report on attempt {Attempt}: {Details}", 
+                        retryAttempt + 1, errorDetails);
+                    
+                    retryAttempt++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error requesting situation report for symbol {Symbol} on attempt {Attempt}", symbol, retryAttempt + 1);
+                    Interlocked.Increment(ref _consecutiveFailures);
+                    retryAttempt++;
+                }
+                
+                if (retryAttempt <= _maxRetryAttempts)
+                {
+                    // Calculate exponential backoff delay with jitter
+                    var backoffDelay = CalculateBackoffDelay(retryAttempt);
+                    _logger.LogInformation("Retrying in {Delay}ms (attempt {Attempt} of {MaxAttempts})", 
+                        backoffDelay.TotalMilliseconds, retryAttempt, _maxRetryAttempts);
+                    await Task.Delay(backoffDelay);
+                }
+            }
+            
+            // If we've reached here, all retries failed
+            _logger.LogError("All {MaxRetries} retry attempts failed when requesting situation report for {Symbol}", _maxRetryAttempts, symbol);
+            Interlocked.Increment(ref _consecutiveFailures);
+            
+            // Log severe warning if too many consecutive failures
+            if (_consecutiveFailures > 5)
+            {
+                _logger.LogCritical(
+                    "Detected {Count} consecutive failures in API communication. Bot stability may be compromised.",
+                    _consecutiveFailures);
+            }
+            
+            return false;
         }
 
         // Helper method to extract detailed network error information

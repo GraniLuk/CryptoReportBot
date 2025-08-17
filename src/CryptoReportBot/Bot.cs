@@ -25,6 +25,7 @@ namespace CryptoReportBot
         private readonly CreateAlertHandler _createAlertHandler;
         private readonly CreateGmtAlertHandler _createGmtAlertHandler;
         private readonly CreateIndicatorAlertHandler _createIndicatorAlertHandler;
+        private readonly CreateSituationReportHandler _createSituationReportHandler;
         private readonly RemoveAlertHandler _removeAlertHandler;
         private readonly ListAlertsHandler _listAlertsHandler;
         
@@ -46,6 +47,7 @@ namespace CryptoReportBot
             CreateAlertHandler createAlertHandler,
             CreateGmtAlertHandler createGmtAlertHandler,
             CreateIndicatorAlertHandler createIndicatorAlertHandler,
+            CreateSituationReportHandler createSituationReportHandler,
             RemoveAlertHandler removeAlertHandler,
             ListAlertsHandler listAlertsHandler)
         {
@@ -54,6 +56,7 @@ namespace CryptoReportBot
             _createAlertHandler = createAlertHandler;
             _createGmtAlertHandler = createGmtAlertHandler;
             _createIndicatorAlertHandler = createIndicatorAlertHandler;
+            _createSituationReportHandler = createSituationReportHandler;
             _removeAlertHandler = removeAlertHandler;
             _listAlertsHandler = listAlertsHandler;
             
@@ -310,6 +313,12 @@ namespace CryptoReportBot
                             await _createIndicatorAlertHandler.StartAsync(_botClient, message, userState);
                             break;
                             
+                        case "/situationreport":
+                        case "/situation_report":
+                        case "/report":
+                            await _createSituationReportHandler.StartAsync(_botClient, message, userState);
+                            break;
+                            
                         case "/getalerts":
                         case "/listalerts":
                             await _listAlertsHandler.HandleAsync(_botClient, message);
@@ -341,7 +350,7 @@ namespace CryptoReportBot
                         default:
                             await _botClient.SendTextMessageAsync(
                                 chatId: message.Chat.Id,
-                                text: "Unknown command. Available commands: /createalert, /creategmtalert, /indicator_alert, /getalerts, /removealert, /status"
+                                text: "Unknown command. Available commands: /createalert, /creategmtalert, /indicator_alert, /situationreport, /getalerts, /removealert, /status"
                             );
                             break;
                     }
@@ -389,6 +398,10 @@ namespace CryptoReportBot
                             
                         case ConversationState.AwaitingIndicatorDescription:
                             await _createIndicatorAlertHandler.HandleDescriptionAsync(_botClient, message, userState);
+                            break;
+                            
+                        case ConversationState.AwaitingSituationReportSymbol:
+                            await _createSituationReportHandler.HandleSymbolAsync(_botClient, message, userState);
                             break;
                             
                         default:

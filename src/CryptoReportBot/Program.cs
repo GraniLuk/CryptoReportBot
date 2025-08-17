@@ -348,6 +348,7 @@ namespace CryptoReportBot
                     services.AddSingleton<CreateAlertHandler>();
                     services.AddSingleton<CreateGmtAlertHandler>();
                     services.AddSingleton<CreateIndicatorAlertHandler>();
+                    services.AddSingleton<CreateSituationReportHandler>();
                     services.AddSingleton<RemoveAlertHandler>();
                     services.AddSingleton<ListAlertsHandler>();
                     

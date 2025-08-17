@@ -46,14 +46,11 @@ namespace CryptoReportBot
             {
                 new[] { 
                     new KeyboardButton("BTC"), 
-                    new KeyboardButton("DOT"), 
-                    new KeyboardButton("BNB"), 
-                    new KeyboardButton("MATIC"), 
-                    new KeyboardButton("FLOW"), 
-                    new KeyboardButton("ATOM"), 
-                    new KeyboardButton("OSMO"), 
                     new KeyboardButton("ETH"), 
-                    new KeyboardButton("HBAR") 
+                    new KeyboardButton("BNB"), 
+                    new KeyboardButton("DOT"),  
+                    new KeyboardButton("HBAR"),
+                    new KeyboardButton("VIRTUAL") 
                 }
             })
             {
