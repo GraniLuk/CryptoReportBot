@@ -552,26 +552,36 @@ namespace CryptoReportBot
             {
                 try
                 {
-                    if (!IsConfigured)
+                    // Check if crypto reports API is configured
+                    if (string.IsNullOrEmpty(_config.CryptoReportsApiUrl))
                     {
-                        _logger.LogWarning("Cannot request situation report: Azure Function Key is not configured");
+                        _logger.LogError("Cannot request situation report: Crypto Reports API URL is not configured");
+                        return false;
+                    }
+                    
+                    if (string.IsNullOrEmpty(_config.CryptoReportsApiKey))
+                    {
+                        _logger.LogError("Cannot request situation report: Crypto Reports API Key is not configured");
                         return false;
                     }
 
                     // Use the configured URL for the crypto situation API
-                    var url = $"{_config.CryptoReportsApiUrl}/api/crypto-situation?symbol={symbol}&save_to_onedrive=true&send_to_telegram=true&code={_config.CryptoReportsApiKey}";
+                    var baseUrl = _config.CryptoReportsApiUrl.TrimEnd('/');
+                    var apiKey = _config.CryptoReportsApiKey;
+                    var url = $"{baseUrl}/api/crypto-situation?symbol={Uri.EscapeDataString(symbol)}&save_to_onedrive=true&send_to_telegram=true&code={Uri.EscapeDataString(apiKey)}";
 
-                    _logger.LogInformation("Requesting situation report for symbol: {Symbol}", symbol);
+                    _logger.LogInformation("Requesting situation report for symbol: {Symbol} from URL: {BaseUrl}", symbol, baseUrl);
                     
                     var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                     var response = await _httpClient.GetAsync(url, cts.Token);
                     var responseText = await response.Content.ReadAsStringAsync();
                     
                     _logger.LogInformation(
-                        "Situation report response status: {Status}, Response text: {Text}, Request duration: {Duration}ms", 
+                        "Situation report response status: {Status}, Response text: {Text}, Request duration: {Duration}ms, URL: {Url}", 
                         response.StatusCode, 
                         responseText,
-                        stopwatch.ElapsedMilliseconds);
+                        stopwatch.ElapsedMilliseconds,
+                        url.Substring(0, Math.Min(url.IndexOf("code=") + 10, url.Length)));
                     
                     if (response.IsSuccessStatusCode)
                     {
@@ -581,8 +591,8 @@ namespace CryptoReportBot
                     }
                     else
                     {
-                        _logger.LogWarning("HTTP error response: {StatusCode}, Content: {Content}", 
-                            response.StatusCode, responseText);
+                        _logger.LogWarning("Situation report HTTP error response: {StatusCode}, Content: {Content}, URL: {Url}", 
+                            response.StatusCode, responseText, url.Substring(0, Math.Min(url.IndexOf("code=") + 10, url.Length)));
                             
                         // For certain status codes, we won't retry
                         if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
