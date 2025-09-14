@@ -42,9 +42,17 @@ namespace CryptoReportBot
             _config = config;
             _logger = logger;
 
-            // Configure default timeout for HTTP operations
-            _httpClient.Timeout = TimeSpan.FromSeconds(30);
+            // Global HttpClient timeout: set to infinite so per-call CancellationTokenSource governs timeouts.
+            // This allows us to use longer timeouts for specific long-running operations (e.g., situation report ~5 min)
+            _httpClient.Timeout = Timeout.InfiniteTimeSpan;
         }
+
+    // Extended timeout specifically for long-running situation report requests (~5 minutes observed)
+    // NOTE: If this grows further consider:
+    //  1. Converting the Azure Function to an async pattern (queue trigger + status polling)
+    //  2. Using Durable Functions / orchestrations
+    //  3. Returning 202 Accepted + operation id and polling from bot
+    private readonly TimeSpan _situationReportTimeout = TimeSpan.FromMinutes(6); // slightly above expected 5 min
 
         // Property to check if the client is properly configured with an API key
         public bool IsConfigured => !string.IsNullOrEmpty(_config.AzureFunctionKey);
@@ -214,7 +222,9 @@ namespace CryptoReportBot
                     _logger.LogInformation("Fetching alerts from: {Url}", 
                         url.Substring(0, url.IndexOf("?")));
 
-                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    // Long-running operation: use extended timeout. Consider moving to async pattern (queue + status poll / durable function)
+                    using var cts = new CancellationTokenSource(_situationReportTimeout);
+                    _logger.LogInformation("Situation report using extended timeout {TimeoutMinutes} minutes", _situationReportTimeout.TotalMinutes);
                     var response = await _httpClient.GetAsync(url, cts.Token);
                     
                     _logger.LogInformation("Get alerts response: {Status}, Request duration: {Duration}ms", 
