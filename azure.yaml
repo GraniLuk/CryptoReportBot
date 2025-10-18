@@ -1,12 +1,15 @@
-name: CryptoReportBot
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: cryptoreportbot
 metadata:
-  template: minimal
+  template: cryptoreportbot@0.0.1-beta
 infra:
   provider: bicep
-  path: infra
-
 services:
-  cryptoreportbot:
-    project: src\CryptoReportBot
-    host: appservice
+  web:
+    project: ./src/CryptoReportBot
     language: dotnet
+    host: appservice
+    docker:
+      path: ./prod.dockerfile
+      context: ./

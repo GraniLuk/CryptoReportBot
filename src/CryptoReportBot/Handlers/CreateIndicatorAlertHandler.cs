@@ -54,7 +54,7 @@ namespace CryptoReportBot
                     new KeyboardButton("ETH"), 
                     new KeyboardButton("BNB"), 
                     new KeyboardButton("DOT"),  
-                    new KeyboardButton("HBAR"),
+                    new KeyboardButton("SOL"),
                     new KeyboardButton("VIRTUAL") 
                 }
             })

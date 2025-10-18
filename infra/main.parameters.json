@@ -8,20 +8,11 @@
     "location": {
       "value": "${AZURE_LOCATION}"
     },
+    "principalId": {
+      "value": "${AZURE_PRINCIPAL_ID}"
+    },
     "resourceGroupName": {
       "value": "rg-${AZURE_ENV_NAME}"
-    },
-    "alertsBotToken": {
-      "value": "${alerts_bot_token}"
-    },
-    "azureFunctionUrl": {
-      "value": "${azure_function_url}"
-    },
-    "azureFunctionKey": {
-      "value": "${azure_function_key}"
-    },
-    "allowedUserIds": {
-      "value": "${allowed_user_ids}"
     }
   }
 }
